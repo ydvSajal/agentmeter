@@ -46,7 +46,7 @@ export const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
 export function createApp(deps: AppDeps) {
   const app = new Hono();
 
-  const exposeHeaders = ["X-PAYMENT-RESPONSE"];
+  const exposeHeaders = ["X-PAYMENT-RESPONSE", "PAYMENT-REQUIRED"]; // browser wallets read the 402 header
   const origins = deps.auth?.allowedOrigins;
   app.use(
     "*",

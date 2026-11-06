@@ -65,6 +65,9 @@ export async function payForMinutes(o: {
   agentId: string;
   minutes: number;
   signer: Signer;
+  /** Payer-side guard: refuse to sign more than this per payment (tinybar). Default 1 HBAR. */
+  maxTinybarPerPayment?: bigint;
+  network?: "testnet" | "mainnet";
   fetchImpl?: typeof fetch;
 }): Promise<RentResult> {
   const f = o.fetchImpl ?? fetch;
@@ -79,7 +82,12 @@ export async function payForMinutes(o: {
   const required = decodePaymentRequiredHeader(header);
   const amount = required.accepts[0]?.amount ?? "0";
 
-  const client = new x402Client().register("hedera:*", new ExactHederaScheme(o.signer));
+  const client = new x402Client()
+    .register("hedera:*", new ExactHederaScheme(o.signer))
+    .setSpendControls({
+      maxAmountPerPayment: false, // no USD default for HBAR; the HBAR cap below applies instead
+      allowedAssets: [{ network: `hedera:${o.network ?? "testnet"}`, asset: "0.0.0", maxAmountPerPayment: (o.maxTinybarPerPayment ?? 100_000_000n).toString() }],
+    });
   const payload = await client.createPaymentPayload(required);
 
   const paid = await f(url, { method: "POST", headers: { ...headers, "PAYMENT-SIGNATURE": encodePaymentSignatureHeader(payload) }, body });

@@ -67,6 +67,20 @@ export function mountApi(app: Hono, ctx: ApiContext, log: Logger) {
     return c.json({ sessionId: res.sessionId, result: res.result });
   });
 
+  // Public catalog for the wallet rent page (no login): only what a payer needs to choose and price.
+  app.get("/rentable", async (c) =>
+    c.json(
+      (await repos.devices.list()).map((d) => ({
+        id: d.id,
+        name: d.name,
+        pricePerMinute: d.pricePerMinute,
+        asset: d.asset,
+        online: hub.isOnline(d.id),
+        relay: d.relay,
+      })),
+    ),
+  );
+
   // --- reads for the dashboard ----------------------------------------------------------------
   app.get("/devices", async (c) =>
     c.json((await repos.devices.list()).map((d) => deviceView(d, hub.isOnline(d.id)))),

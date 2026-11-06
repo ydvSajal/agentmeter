@@ -6,8 +6,15 @@
   "main": "src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "rent": "tsx src/cli.ts"
   },
-  "dependencies": { "@agentmeter/shared": "workspace:*" },
-  "devDependencies": { "@types/node": "^22.0.0" }
+  "dependencies": {
+    "@agentmeter/shared": "workspace:*",
+    "@agentmeter/chain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.15"
+  }
 }
