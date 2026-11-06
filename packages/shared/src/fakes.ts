@@ -6,6 +6,8 @@ import type {
   Clock,
   Decider,
   EpisodeStore,
+  NotificationMessage,
+  Notifier,
   PaymentFacilitator,
   PaymentRequirements,
   SettleResult,
@@ -84,6 +86,17 @@ export class FakeEpisodeStore implements EpisodeStore {
   async put(e: Episode) {
     this.episodes.push(e);
     return { rootHash: `0x${createHash("sha256").update(JSON.stringify(e)).digest("hex")}` };
+  }
+}
+
+export class FakeNotifier implements Notifier {
+  sent: NotificationMessage[] = [];
+  /** "fail" simulates a provider error; the send is not recorded. */
+  mode: "ok" | "fail" = "ok";
+  async send(msg: NotificationMessage) {
+    if (this.mode === "fail") throw new AgentMeterError("INTERNAL", "fake: notifier unavailable");
+    this.sent.push(msg);
+    return { id: `fake-mail-${this.sent.length}` };
   }
 }
 

@@ -6,6 +6,7 @@ import {
   FakeAuditLog,
   FakeDecider,
   FakeFacilitator,
+  FakeNotifier,
   FakeStepUp,
   ModelVerdict,
   decodeReceipt,
@@ -137,6 +138,15 @@ describe("other fakes", () => {
     const state = new URL(authorizeUrl).searchParams.get("state")!;
     expect((await s.complete({ state, code: "c" })).result).toBe("APPROVED");
     await expect(s.complete({ state, code: "c" })).rejects.toBeInstanceOf(AgentMeterError);
+  });
+  it("notifier records sends and throws on failure without recording", async () => {
+    const n = new FakeNotifier();
+    const msg = { kind: "SAFE_STOP" as const, idempotencyKey: "SAFE_STOP:s1", subject: "x", text: "y" };
+    expect((await n.send(msg)).id).toBe("fake-mail-1");
+    expect(n.sent).toHaveLength(1);
+    n.mode = "fail";
+    await expect(n.send(msg)).rejects.toBeInstanceOf(AgentMeterError);
+    expect(n.sent).toHaveLength(1);
   });
   it("audit log returns increasing sequence numbers", async () => {
     const l = new FakeAuditLog();

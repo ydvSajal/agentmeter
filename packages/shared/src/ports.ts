@@ -62,3 +62,26 @@ export interface StepUpProvider {
 export interface Clock {
   now(): number; // unix seconds
 }
+
+/** Human-facing alerts (docs/SPEC-NEON-RESEND.md §3). Never on the decision path. */
+export type NotificationKind =
+  | "STEP_UP_REQUESTED"
+  | "SESSION_SETTLED"
+  | "SESSION_CANCELLED"
+  | "SAFE_STOP"
+  | "DEVICE_OFFLINE";
+
+export interface NotificationMessage {
+  kind: NotificationKind;
+  sessionId?: string;
+  /** Idempotency key: adapters send it as the provider Idempotency-Key header. */
+  idempotencyKey: string;
+  subject: string;
+  text: string;
+  html?: string;
+}
+
+export interface Notifier {
+  /** Throws AgentMeterError("INTERNAL") on failure or timeout. Callers must not change session state on a throw. */
+  send(msg: NotificationMessage): Promise<{ id: string }>;
+}
