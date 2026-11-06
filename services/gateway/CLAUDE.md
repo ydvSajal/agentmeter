@@ -18,7 +18,7 @@ Hono + `@hono/node-server` + `ws`, Prisma + SQLite, zod, pino, Vitest.
 - [x] **B5** HTTP routes: `POST /devices/:id/session` (402 flow via the `PaymentFacilitator` port), `GET /sessions/:id`, step-up start/callback, reads, `GET /events` SSE.
 - [x] **B6** Device hub `ws/devices.ts`: hello, heartbeat, ack/nack, 15s offline detection, `receipt`/`cancel` push. Include a simulated-device script (`pnpm sim:device`) so you can test without hardware.
 - [ ] **B7** `services/agent`: `pay.ts` using `@x402/fetch` + Hedera signer (pattern from hbar402), `cli.ts` (`rent`, `status`), handles `step_up_required` by printing the URL and polling. Needs web3 lane for the real signer; use the fake facilitator until then.
-- [ ] **B8** Scenario runner `pnpm demo:scenarios` covering all six demo cases.
+- [x] **B8** Scenario runner `pnpm demo:scenarios` covering all six demo cases.
 
 ## Rules
 - The order of operations lives only in `orchestrator.ts`.

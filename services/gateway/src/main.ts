@@ -2,13 +2,10 @@
 import { serve } from "@hono/node-server";
 import { createDb, createRepos } from "@agentmeter/db";
 import { generateSeedBase64, publicKeyFromSeedBase64 } from "@agentmeter/shared";
-import { createApp } from "./app";
 import { ConfigError, loadConfig } from "./config";
-import { Orchestrator } from "./core/orchestrator";
-import { hbarToTinybar } from "./core/policy";
+import { createGateway } from "./gateway";
 import { createLogger } from "./logger";
 import { buildPorts } from "./ports";
-import { DeviceHub } from "./ws/devices";
 
 async function main() {
   const config = loadConfig();
@@ -34,31 +31,11 @@ async function main() {
     log.warn({ publicKeyBase64: publicKeyFromSeedBase64(seed) }, "RECEIPT_SIGNING_KEY_ED25519 not set: using an EPHEMERAL dev key; devices must pin this public key");
   }
 
-  const hub = new DeviceHub(repos, ports.clock, log);
+  const { app, hub, orchestrator } = createGateway({ config, ports, repos, log, receiptSeedBase64: seed });
   hub.startSweeper();
-  const orchestrator = new Orchestrator(repos, ports, hub, log, {
-    receiptSeedBase64: seed,
-    stepUpThreshold: hbarToTinybar(config.env.STEP_UP_THRESHOLD_HBAR),
-    ackTimeoutMs: config.env.ACK_TIMEOUT_MS,
-    zgTimeoutMs: config.env.ZG_TIMEOUT_MS,
-    ...(config.env.NOTIFY_ENABLED && config.env.NOTIFY_TO ? { notifyTo: config.env.NOTIFY_TO } : {}),
-    hederaNetwork: config.env.HEDERA_NETWORK,
-  });
-  hub.onStatus((e) => {
-    if (e.status === "OFFLINE") void orchestrator.onDeviceOffline(e.deviceId);
-  });
   // Before serving: pending payments were in memory, so no unsettled session from a previous run can settle.
   await orchestrator.recoverOrphans();
   setInterval(() => void orchestrator.expireStaleStepUps(), 30_000).unref();
-
-  const app = createApp({
-    log,
-    adapters: config.adapters,
-    startedAt: ports.clock.now(),
-    now: () => ports.clock.now(),
-    checkDb: async () => (await repos.ping(), true),
-    api: { orchestrator, repos, hub, clock: ports.clock, hederaNetwork: config.env.HEDERA_NETWORK },
-  });
 
   const server = serve({ fetch: app.fetch, port: config.env.PORT }, (info) =>
     log.info({ port: info.port, adapters: config.adapters }, "gateway listening"),
