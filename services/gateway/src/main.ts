@@ -41,6 +41,11 @@ async function main() {
     stepUpThreshold: hbarToTinybar(config.env.STEP_UP_THRESHOLD_HBAR),
     ackTimeoutMs: config.env.ACK_TIMEOUT_MS,
     zgTimeoutMs: config.env.ZG_TIMEOUT_MS,
+    ...(config.env.NOTIFY_ENABLED && config.env.NOTIFY_TO ? { notifyTo: config.env.NOTIFY_TO } : {}),
+    hederaNetwork: config.env.HEDERA_NETWORK,
+  });
+  hub.onStatus((e) => {
+    if (e.status === "OFFLINE") void orchestrator.onDeviceOffline(e.deviceId);
   });
   // Before serving: pending payments were in memory, so no unsettled session from a previous run can settle.
   await orchestrator.recoverOrphans();

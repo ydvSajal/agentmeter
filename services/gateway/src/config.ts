@@ -21,6 +21,13 @@ const Schema = z.object({
   ACK_TIMEOUT_MS: num(8000),
   ZG_TIMEOUT_MS: num(4000),
 
+  // Email (AD035). Off by default; when on, key and recipient are required.
+  NOTIFY_ENABLED: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
+  RESEND_API_KEY: z.string().optional(),
+  NOTIFY_FROM: z.string().default("onboarding@resend.dev"),
+  NOTIFY_TO: z.string().email().optional(),
+  NOTIFY_TIMEOUT_MS: num(4000),
+
   PUBLIC_BASE_URL: z.string().url().optional(),
   HEDERA_NETWORK: z.enum(["testnet","mainnet"]).default("testnet"),
   HEDERA_OPERATOR_ID: z.string().optional(),
@@ -85,6 +92,9 @@ export function loadConfig(source: Record<string, string | undefined> = process.
     for (const key of REQUIRED_FOR_REAL[port]) {
       if (!(env as Record<string, unknown>)[key]) missing.push(`${key} (needed by real ${port})`);
     }
+  }
+  if (env.NOTIFY_ENABLED) {
+    for (const key of ["RESEND_API_KEY", "NOTIFY_TO"] as const) if (!env[key]) missing.push(`${key} (needed when NOTIFY_ENABLED=true)`);
   }
   if (missing.length) throw new ConfigError(`missing environment: ${missing.join(", ")}`);
   return { env, adapters };
