@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -13,9 +13,14 @@ describe("postgres schema (Neon, AD034/AD037)", () => {
     expect(read("prisma/postgres/schema.prisma")).toBe(committed);
   });
 
-  it("initial migration creates a table for every model and an index for every unique", () => {
+  it("migrations together create a table for every model and an index for every unique", () => {
     const schema = read("prisma/postgres/schema.prisma");
-    const sql = read("prisma/postgres/migrations/0001_init/migration.sql");
+    const dir = join(root, "prisma/postgres/migrations");
+    const sql = readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((d) => read(`prisma/postgres/migrations/${d.name}/migration.sql`))
+      .join("\n");
     const models = [...schema.matchAll(/^model (\w+) \{/gm)].map((m) => m[1]);
     expect(models.length).toBeGreaterThan(5);
     for (const m of models) expect(sql).toContain(`CREATE TABLE "${m}"`);

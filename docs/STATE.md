@@ -5,6 +5,7 @@
 _Last updated: 2026-11-07 by core/backend session (N1+N2 merged; N3+N8 Neon Postgres + Render config on `be/neon-postgres`)_
 
 ## Where we are
+- Dashboard login shipped (AD038): `/login`, `/register`, gateway `/auth/*`, protected dashboard reads. Fixture mode (`NEXT_PUBLIC_FIXTURES=1`) skips login. Postgres migration `0002_auth` needs `pnpm --filter @agentmeter/db migrate:pg` against Neon.
 - Phase: lanes open. Gate **G0 passed** (2026-11-06). Next gates: G1 first Hedera payment (needs owner keys), G2 firmware verify.
 - Recommended first lanes (no keys needed): backend B1–B6 (`services/gateway`) and web W1–W3 (`apps/web`); firmware F1 if the ESP32 is in hand; web3 C1 is blocked on Hedera keys.
 - Implemented: scaffolding + shared contracts only. No Hedera/0G/World keys exist yet; no lane code yet.

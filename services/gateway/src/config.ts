@@ -14,6 +14,12 @@ const Schema = z.object({
   STEPUP: mode.optional(),
 
   PORT: num(8787),
+  // Browser auth (AD038). WEB_ORIGIN: comma-separated exact dashboard origins (CORS + CSRF allowlist).
+  WEB_ORIGIN: z.string().default("http://127.0.0.1:3000,http://localhost:3000"),
+  AUTH_ALLOW_REGISTRATION: z.enum(["true", "false"]).default("true"),
+  AUTH_COOKIE_SECURE: z.enum(["true", "false"]).default("false"),
+  AUTH_COOKIE_SAMESITE: z.enum(["Lax", "Strict", "None"]).default("Lax"),
+  AUTH_SESSION_TTL_HOURS: num(168),
   DATABASE_URL: z.string().default("file:./dev.db"), // prod: Neon pooled postgres URL (AD034)
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   RECEIPT_SIGNING_KEY_ED25519: z.string().optional(),

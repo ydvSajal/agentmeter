@@ -31,7 +31,17 @@ async function main() {
     log.warn({ publicKeyBase64: publicKeyFromSeedBase64(seed) }, "RECEIPT_SIGNING_KEY_ED25519 not set: using an EPHEMERAL dev key; devices must pin this public key");
   }
 
-  const { app, hub, orchestrator } = createGateway({ config, ports, repos, log, receiptSeedBase64: seed });
+  const auth = {
+    repos,
+    now: () => ports.clock.now(),
+    allowedOrigins: config.env.WEB_ORIGIN.split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean),
+    allowRegistration: config.env.AUTH_ALLOW_REGISTRATION === "true",
+    secureCookie: config.env.AUTH_COOKIE_SECURE === "true",
+    sameSite: config.env.AUTH_COOKIE_SAMESITE,
+    ttlSec: config.env.AUTH_SESSION_TTL_HOURS * 3600,
+  };
+  setInterval(() => void repos.authSessions.purgeExpired(ports.clock.now()).catch(() => {}), 3600_000).unref();
+  const { app, hub, orchestrator } = createGateway({ config, ports, repos, log, receiptSeedBase64: seed, auth });
   hub.startSweeper();
   // Before serving: pending payments were in memory, so no unsettled session from a previous run can settle.
   await orchestrator.recoverOrphans();

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AuthGate } from "./auth-gate";
+import { UserMenu } from "./user-menu";
 import {
   Activity,
   Cpu,
@@ -70,10 +72,10 @@ export function AppShell({
           <Link href="/docs" className="dashboard-docs">
             Docs
           </Link>
-          <span className="top-avatar">S</span>
+          <UserMenu />
         </header>
         <main id="main">
-          {children}
+          <AuthGate>{children}</AuthGate>
           <footer>
             <span>
               AgentMeter{" "}

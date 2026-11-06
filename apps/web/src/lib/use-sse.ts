@@ -8,7 +8,9 @@ export function useSSE(onUpdate: () => void) {
   const [connected, setConnected] = useState(false);
   useEffect(() => {
     if (fixtureMode) return;
-    const source = new EventSource(`${gatewayUrl.replace(/\/$/, "")}/events`);
+    const source = new EventSource(`${gatewayUrl.replace(/\/$/, "")}/events`, {
+      withCredentials: true,
+    });
     source.onopen = () => {
       setConnected(true);
       callback.current();

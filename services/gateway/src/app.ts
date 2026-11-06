@@ -5,6 +5,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { AgentMeterError, type ErrorCode } from "@agentmeter/shared";
 import type { Logger } from "pino";
 import type { AdapterModes } from "./config";
+import { authRoutes, requireAuth, type AuthDeps } from "./http/auth";
 import { mountApi, type ApiContext } from "./http/routes";
 
 export interface AppDeps {
@@ -16,6 +17,8 @@ export interface AppDeps {
   checkDb?: () => Promise<boolean>;
   /** When provided, mounts the REST + SSE routes. */
   api?: ApiContext;
+  /** When set: /auth/* is mounted and dashboard reads need the login cookie; CORS becomes an exact-origin allowlist. */
+  auth?: AuthDeps;
 }
 
 /** HTTP status for each stable error code (docs/API.md). */
@@ -43,7 +46,16 @@ export const STATUS: Record<ErrorCode, ContentfulStatusCode> = {
 export function createApp(deps: AppDeps) {
   const app = new Hono();
 
-  app.use("*", cors({ origin: "*", exposeHeaders: ["X-PAYMENT-RESPONSE"] }));
+  const exposeHeaders = ["X-PAYMENT-RESPONSE"];
+  const origins = deps.auth?.allowedOrigins;
+  app.use(
+    "*",
+    cors(
+      origins
+        ? { origin: (o) => (origins.includes(o) ? o : null), credentials: true, exposeHeaders } // cookies need an exact origin
+        : { origin: "*", exposeHeaders },
+    ),
+  );
 
   app.get("/health", async (c) => {
     const db = deps.checkDb ? ((await deps.checkDb().catch(() => false)) ? "ok" : "down") : "unconfigured";
@@ -59,6 +71,11 @@ export function createApp(deps: AppDeps) {
     );
   });
 
+  if (deps.auth) {
+    app.route("/auth", authRoutes(deps.auth));
+    // Dashboard-only reads. /sessions/:id stays open (agents poll it; ids are unguessable) and the x402 POST is paid, not logged in.
+    for (const p of ["/devices", "/agents", "/audit", "/notifications", "/events"]) app.use(p, requireAuth(deps.auth));
+  }
   if (deps.api) mountApi(app, deps.api, deps.log);
 
   app.onError((err, c) => {
