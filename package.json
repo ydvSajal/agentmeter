@@ -4,11 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "packageManager": "pnpm@11.13.1",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json,yml}\" --ignore-path .gitignore"
+    "format": "prettier --write \"**/*.{ts,tsx,md,json,yml}\" --ignore-path .gitignore",
+    "demo:scenarios": "pnpm --filter @agentmeter/gateway demo:scenarios"
   },
   "devDependencies": {
     "prettier": "^3.3.0",

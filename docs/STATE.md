@@ -2,7 +2,7 @@
 
 **Read this first after any context compaction.** It is auto-printed by the `SessionStart` (compact) hook in `.claude/settings.json`. Update it at every milestone and before ending a session (rule in `CLAUDE.md`). Keep it short: facts that survive compaction, not narrative.
 
-_Last updated: 2026-11-06 by backend session (fail-safe hardening, branch `be/failsafe-fixes`)_
+_Last updated: 2026-11-06 by backend session (B8 scenarios, #13 fail-safe merged)_
 
 ## Where we are
 - Phase: lanes open. Gate **G0 passed** (2026-11-06). Next gates: G1 first Hedera payment (needs owner keys), G2 firmware verify.
@@ -22,7 +22,7 @@ _Last updated: 2026-11-06 by backend session (fail-safe hardening, branch `be/fa
 |---|---|---|
 | core | K1–K4 done | K5 handle `contract` issues; K6 final docs |
 | web | not started | W1 scaffold Next.js after G0 |
-| backend | B1-B6 merged into main (PRs #5-#9, #11); CI green. Smoke: real gateway + sim ESP32 + curl reached SETTLED on fakes. Fail-safe hardening PR open (`be/failsafe-fixes`, AD027-AD031): catch-all, settle-fail switches device off, step-up TTL, cap reservation, boot recovery | B7 agent CLI (needs C1 payer code), B8 scenarios; C-lane needs Hedera keys |
+| backend | B1-B6, B8 done; fail-safe hardening (#13) merged. `pnpm demo:scenarios` runs 8 demo cases (35 checks) against the real gateway + simulated ESP32 on fakes; also a CI step | B7 agent CLI (real signer needs owner Hedera keys); real adapters C1/C3/C4/C5/C6 |
 | web3 | C2 real facilitator adapter done (PR open); live-verified vs x402.org without keys | C1 first payment + C3 HCS need owner Hedera keys; C4/C5 need 0G key; C6 needs World client |
 | firmware | owner has the ESP32 and writes firmware later; flasher tool in `tools/flasher` | F1 serial vector test when owner starts; protocol ref: `services/gateway/scripts/sim-device.ts` + `docs/API.md` §2-3 |
 
@@ -49,3 +49,4 @@ See `docs/DECISIONS.md` (AD001–AD033). Key ones: settle-on-ack; no Solidity; a
 - Flasher: `pnpm --filter @agentmeter/flasher start` then http://localhost:5174 in Chrome/Edge. Flash PlatformIO .bin files and read serial output. Verified in-browser only (load, presets, no console errors); real flashing untested until the board is plugged in.
 - DB tests/gateway tests use real SQLite; `createDb` uses one connection + long transaction limits (writes queue instead of SQLITE_BUSY). vitest in gateway runs files serially with 30s timeouts.
 - x402 facts (verified 2026-11-06): `@x402/hedera`/`core`/`fetch`/`hono` 2.30.0 are on npm. Facilitators x402.org (fee payer 0.0.9185802) and Blocky402 (0.0.7162784) both list hedera:testnet. World OIDC discovery works (authorize/token/jwks under auth.world.org/api/v1). Run real-facilitator live tests with `LIVE=1 pnpm --filter @agentmeter/chain test`.
+- `pnpm demo:scenarios` boots the real gateway in-process (temp SQLite, fake payment/0G/World) with a simulated ESP32 and drives: happy path, replay, step-up denied, step-up approved, 0G down (SAFE_STOP), no ack, device offline, settle failure. Run it before recording the demo. `src/gateway.ts` is the shared assembly used by main.ts and the runner.

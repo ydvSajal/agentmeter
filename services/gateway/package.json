@@ -9,7 +9,8 @@
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run --passWithNoTests",
-    "sim:device": "tsx scripts/sim-device.ts"
+    "sim:device": "tsx scripts/sim-device.ts",
+    "demo:scenarios": "tsx scripts/demo-scenarios.ts"
   },
   "dependencies": {
     "@agentmeter/chain": "workspace:*",

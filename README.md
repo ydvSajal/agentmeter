@@ -15,6 +15,7 @@ pnpm install
 cp .env.example .env                           # fill later; ADAPTERS=fake needs no keys
 pnpm typecheck && pnpm test                    # 14 tests in packages/shared
 node packages/shared/scripts/gen-keys.ts       # new receipt-signing seed + public key to pin in firmware
+pnpm demo:scenarios                            # 8 demo cases against the real gateway + simulated ESP32 (no keys, no hardware)
 ```
 
 Working on a lane in parallel: see [`docs/WORKFLOW.md`](docs/WORKFLOW.md) §2 (git worktrees) and your lane brief (`apps/web/CLAUDE.md`, `services/gateway/CLAUDE.md`, `packages/chain/CLAUDE.md`, `firmware/esp32/CLAUDE.md`).
