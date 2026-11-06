@@ -13,7 +13,7 @@ Items tagged **(verify)** are unconfirmed facts to check before depending on the
 | Package manager | pnpm 11 workspaces | |
 | Gateway | Hono + `@hono/node-server` + `ws` | One process, modules not microservices |
 | Validation | zod | Single source of truth for wire types, in `packages/shared` |
-| DB | Prisma + SQLite | Single writer. File `DATABASE_URL=file:./dev.db` |
+| DB | Prisma + Neon Postgres | Pooled `DATABASE_URL` at runtime, direct `DIRECT_URL` for migrations (AD034) |
 | Dashboard | Next.js (App Router) + Tailwind + shadcn/ui | Talks only to the gateway |
 | Payments | `@x402/hedera`, `@x402/core`, `@x402/fetch` | May need monorepo-source dependency (verify npm publish) |
 | Hedera SDK | `@hashgraph/sdk` or `@hiero-ledger/sdk` | (verify) hbar402 uses the latter |
@@ -88,7 +88,7 @@ Items tagged **(verify)** are unconfirmed facts to check before depending on the
 - Dashboard updates within 1s of a state change.
 - Single gateway process, ≤5 devices, ≤10 concurrent sessions.
 
-## 4. Data model (Prisma, SQLite)
+## 4. Data model (Prisma, Postgres on Neon)
 
 Per PRD §7, with these additions:
 - `Session.paymentPayloadHash` is `@unique`.
@@ -123,7 +123,7 @@ Fakes (`FakeDecider`, `FakeFacilitator`, `FakeAuditLog`, `FakeEpisodeStore`, `Fa
 
 | Component | Target | Constraint |
 |---|---|---|
-| Gateway | Laptop (demo); Render/Fly.io backup | Long-lived WebSocket and writable SQLite: no serverless |
+| Gateway | Render Web Service (Starter); laptop as fallback | Long-lived WebSocket: no serverless (AD036) |
 | Dashboard | Laptop or Vercel | Needs public gateway URL if on Vercel |
 | Agent | Laptop | Holds payer key; never deployed |
 | Device | Phone hotspot | Outbound WS only |
