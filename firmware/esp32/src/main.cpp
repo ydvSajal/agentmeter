@@ -3,8 +3,10 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <time.h>
+#include <sys/time.h>
 #include <U8g2lib.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 #include "config.h"
@@ -32,6 +34,35 @@ static void setRelay(bool on) {
   digitalWrite(PIN_RELAY, (on != RELAY_ACTIVE_LOW) ? HIGH : LOW);
 }
 static bool synced() { return time(nullptr) > MIN_VALID_EPOCH; }
+
+// Local-demo fallback when the hotspot cannot reach public NTP. The configured
+// laptop gateway is the clock source; malformed/missing dates leave us waiting.
+static void syncGatewayClock() {
+  static uint32_t lastAttempt = 0;
+  if (synced() || WiFi.status() != WL_CONNECTED || millis() - lastAttempt < 10000) return;
+  lastAttempt = millis();
+  HTTPClient http;
+  http.setConnectTimeout(1500);
+  http.setTimeout(1500);
+  if (!http.begin(String("http://") + GATEWAY_HOST + ":" + GATEWAY_PORT + "/health")) return;
+  const char *headers[] = {"Date"};
+  http.collectHeaders(headers, 1);
+  const int status = http.GET();
+  const String date = http.header("Date");
+  http.end();
+  if (status != 200 || date.length() != 29) return;
+  struct tm utc = {};
+  const char *end = strptime(date.c_str(), "%a, %d %b %Y %H:%M:%S GMT", &utc);
+  if (!end || *end || utc.tm_year < 123 || utc.tm_year > 200) return;
+  setenv("TZ", "UTC0", 1);
+  tzset();
+  const time_t epoch = mktime(&utc);
+  setenv("TZ", TZ_INFO, 1);
+  tzset();
+  if (epoch <= MIN_VALID_EPOCH) return;
+  const struct timeval clock = {epoch, 0};
+  if (settimeofday(&clock, nullptr) == 0) Serial.println("[time] synced from laptop gateway");
+}
 
 static void sendJson(JsonDocument &d) {
   String s;
@@ -130,6 +161,8 @@ static void handleButton() {
 }
 
 void setup() {
+  // Addressable LEDs retain their colour across MCU resets; explicitly clear it.
+  rgbLedWrite(RGB_BUILTIN, 0, 0, 0);
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   for (Star &st : stars) st = {(float)random(0, 128), (float)random(0, 64), 0.05f + random(0, 30) / 100.0f};
   pinMode(PIN_RELAY, OUTPUT);
@@ -146,6 +179,7 @@ void setup() {
 }
 
 void loop() {
+  syncGatewayClock();
   // Start the socket only once WiFi is up and the clock is NTP-synced (receipts need the clock).
   if (!wsStarted && WiFi.status() == WL_CONNECTED && synced()) {
     ws.begin(GATEWAY_HOST, GATEWAY_PORT, "/devices/" DEVICE_ID "?token=" DEVICE_TOKEN);
