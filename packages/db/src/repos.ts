@@ -196,7 +196,16 @@ export function createRepos(db: Db) {
     findByState: (state: string) => db.stepUp.findUnique({ where: { state } }),
   };
 
-  return { devices, agents, sessions, nonces, stepUps, ping: () => db.$queryRaw`SELECT 1` };
+  /** Email log (AD035). A failed or skipped email is recorded here and never touches session state. */
+  const notifications = {
+    create: (n: { id: string; kind: string; toEmail: string; sessionId?: string; now: number }) =>
+      db.notification.create({ data: { id: n.id, kind: n.kind, toEmail: n.toEmail, sessionId: n.sessionId ?? null, createdAt: n.now } }),
+    mark: (id: string, status: "SENT" | "FAILED", extra: { providerId?: string; error?: string } = {}) =>
+      db.notification.update({ where: { id }, data: { status, ...extra } }),
+    recent: (limit = 50) => db.notification.findMany({ orderBy: { createdAt: "desc" }, take: limit }),
+  };
+
+  return { devices, agents, sessions, nonces, stepUps, notifications, ping: () => db.$queryRaw`SELECT 1` };
 }
 
 export type Repos = ReturnType<typeof createRepos>;

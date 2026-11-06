@@ -9,10 +9,12 @@ import {
   type Clock,
   type Decider,
   type EpisodeStore,
+  type Notifier,
   type PaymentFacilitator,
   type StepUpProvider,
 } from "@agentmeter/shared";
 import { HederaFacilitator } from "@agentmeter/chain";
+import { ResendNotifier } from "./adapters/resend";
 import type { Config, PortName } from "./config";
 
 export interface Ports {
@@ -22,6 +24,8 @@ export interface Ports {
   audit: AuditLog;
   stepUp: StepUpProvider;
   clock: Clock;
+  /** Optional: absent means email is off (AD035). Never on the decision path. */
+  notifier?: Notifier;
 }
 
 const systemClock: Clock = { now: () => Math.floor(Date.now() / 1000) };
@@ -54,5 +58,15 @@ export function buildPorts(config: Config): Ports {
     audit: pick("audit", () => new FakeAuditLog()),
     stepUp: pick("stepup", () => new FakeStepUp()),
     clock: systemClock,
+    ...(e.NOTIFY_ENABLED
+      ? {
+          notifier: new ResendNotifier({
+            apiKey: e.RESEND_API_KEY!, // presence enforced by loadConfig
+            from: e.NOTIFY_FROM,
+            to: e.NOTIFY_TO!,
+            timeoutMs: e.NOTIFY_TIMEOUT_MS,
+          }),
+        }
+      : {}),
   };
 }

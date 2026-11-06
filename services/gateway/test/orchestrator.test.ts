@@ -9,6 +9,7 @@ import {
   FakeDecider,
   FakeEpisodeStore,
   FakeFacilitator,
+  FakeNotifier,
   FakeStepUp,
   encodeReceipt,
   generateSeedBase64,
@@ -74,11 +75,13 @@ afterAll(async () => {
 
 let clock: FakeClock;
 let ports: Ports & { facilitator: FakeFacilitator; decider: FakeDecider; audit: FakeAuditLog; episodes: FakeEpisodeStore; stepUp: FakeStepUp };
+let notifier: FakeNotifier;
 let device: FakeDevice;
 let orch: Orchestrator;
 let n = 0;
 
 beforeEach(async () => {
+  await db.notification.deleteMany();
   await db.sessionEvent.deleteMany();
   await db.stepUp.deleteMany();
   await db.session.deleteMany();
@@ -92,6 +95,7 @@ beforeEach(async () => {
     data: { id: "a1", name: "x", hederaAccountId: "0.0.1001", dailyCap: "1000000000", allowedDeviceIds: JSON.stringify(["d1"]) },
   });
   clock = new FakeClock();
+  notifier = new FakeNotifier();
   ports = {
     facilitator: new FakeFacilitator(),
     decider: new FakeDecider(),
@@ -99,6 +103,7 @@ beforeEach(async () => {
     audit: new FakeAuditLog(),
     stepUp: new FakeStepUp(),
     clock,
+    notifier,
   };
   device = new FakeDevice(publicKeyFromSeedBase64(seed), clock);
   orch = new Orchestrator(repos, ports, device, log, OPTS);
@@ -110,6 +115,8 @@ const OPTS = {
   ackTimeoutMs: 100,
   zgTimeoutMs: 50,
   settleBackoffMs: 0,
+  notifyTo: "owner@example.com",
+  notifyRetryMs: 0,
 };
 
 const start = (minutes = 1, header = `pay-${++n}`) =>
@@ -406,5 +413,86 @@ describe("orchestrator", () => {
     orch.onEvent((e) => seen.push(e.state));
     await finish(await start());
     expect(seen).toEqual(["PENDING", "DECIDING", "ISSUED", "ACTIVE", "SETTLED"]);
+  });
+});
+
+describe("email notifications (AD035)", () => {
+  const kinds = () => notifier.sent.map((m) => m.kind);
+
+  it("settled session emails a HashScan link and logs a SENT row", async () => {
+    const r = await start(1);
+    const s = await finish(r);
+    expect(s.state).toBe("SETTLED");
+    expect(kinds()).toEqual(["SESSION_SETTLED"]);
+    expect(notifier.sent[0]!.text).toContain(`https://hashscan.io/testnet/transaction/${s.hederaTxId}`);
+    expect(notifier.sent[0]!.idempotencyKey).toBe(`SESSION_SETTLED:${s.id}`);
+    const rows = await db.notification.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ kind: "SESSION_SETTLED", status: "SENT", sessionId: s.id });
+    expect(rows[0]!.providerId).toMatch(/^fake-mail-/);
+  });
+
+  it("step-up request emails the approval link", async () => {
+    const r = await start(30);
+    await orch.idle();
+    expect(kinds()).toEqual(["STEP_UP_REQUESTED"]);
+    expect(notifier.sent[0]!.text).toContain(r.stepUpUrl!);
+  });
+
+  it("no ack: cancelled email, nothing settled", async () => {
+    device.mode = "silent";
+    const s = await finish(await start(1));
+    expect(s.state).toBe("CANCELLED");
+    expect(kinds()).toEqual(["SESSION_CANCELLED"]);
+    expect(ports.facilitator.calls).not.toContain("settle");
+  });
+
+  it("0G failure: SAFE_STOP email", async () => {
+    ports.decider.mode = "throw";
+    const s = await finish(await start(1));
+    expect(s.state).toBe("SAFE_STOP");
+    expect(kinds()).toEqual(["SAFE_STOP"]);
+  });
+
+  it("email provider down: session still settles, row is FAILED", async () => {
+    notifier.mode = "fail";
+    const s = await finish(await start(1));
+    expect(s.state).toBe("SETTLED");
+    expect(ports.facilitator.calls).toContain("settle");
+    const rows = await db.notification.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: "FAILED" });
+    expect(rows[0]!.error).toMatch(/notifier unavailable/);
+  });
+
+  it("retries a failed send once", async () => {
+    let calls = 0;
+    const real = notifier.send.bind(notifier);
+    notifier.send = async (m) => {
+      if (++calls === 1) throw new Error("blip");
+      return real(m);
+    };
+    await finish(await start(1));
+    expect(calls).toBe(2);
+    expect((await db.notification.findMany())[0]).toMatchObject({ status: "SENT" });
+  });
+
+  it("device going offline during an ACTIVE session emails once", async () => {
+    await db.session.create({
+      data: { id: "live", deviceId: "d1", agentId: "a1", amount: "1", asset: "HBAR", minutes: 1, state: "ACTIVE", paymentPayloadHash: "h-live", createdAt: clock.now(), updatedAt: clock.now() },
+    });
+    await orch.onDeviceOffline("d1");
+    await orch.onDeviceOffline("other");
+    await orch.idle();
+    expect(kinds()).toEqual(["DEVICE_OFFLINE"]);
+  });
+
+  it("no notifyTo configured: nothing is sent or logged", async () => {
+    const quiet = new Orchestrator(repos, ports, device, log, { ...OPTS, notifyTo: undefined });
+    const r = await quiet.startSession({ deviceId: "d1", agentId: "a1", minutes: 1, paymentHeader: `pay-${++n}` });
+    await r.done;
+    await quiet.idle();
+    expect(notifier.sent).toHaveLength(0);
+    expect(await db.notification.count()).toBe(0);
   });
 });

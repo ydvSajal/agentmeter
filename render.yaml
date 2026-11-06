@@ -30,6 +30,12 @@ services:
         sync: false
       - key: AGENT_HEDERA_ACCOUNT_ID
         sync: false
+      - key: NOTIFY_ENABLED # "true" once RESEND_API_KEY and NOTIFY_TO are set (AD035)
+        value: "false"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFY_TO # owner email; with the default sender it must be the Resend account email
+        sync: false
       - key: SEED_DEVICE_TOKEN
         sync: false
       - key: SEED_DEVICE_HMAC_SECRET

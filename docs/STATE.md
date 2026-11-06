@@ -20,14 +20,14 @@ _Last updated: 2026-11-07 by core/backend session (N1+N2 merged; N3+N8 Neon Post
 ## Lanes (parallel sessions via worktrees, see `docs/WORKFLOW.md`)
 | Lane | Status | Next task |
 |---|---|---|
-| core | K1–K4 done. N1 (#16 spec + AD034–036) and N2 (#17 `Notifier` port + `FakeNotifier`) **merged** | N4 Resend adapter, N5 orchestrator email hooks, firmware `WS_TLS` (needed for wss to Render) |
+| core | K1–K4 done. N1 (#16 spec + AD034–036) and N2 (#17 `Notifier` port + `FakeNotifier`) **merged** | firmware `WS_TLS` (needed for wss to Render); N6 web audit list shows `/notifications` |
 | web | not started | W1 scaffold Next.js after G0 |
 | backend | B1-B6 merged into main (PRs #5-#9, #11); CI green. Smoke: real gateway + sim ESP32 + curl reached SETTLED on fakes. Fail-safe hardening PR open (`be/failsafe-fixes`, AD027-AD031): catch-all, settle-fail switches device off, step-up TTL, cap reservation, boot recovery | B7 agent CLI (needs C1 payer code), B8 scenarios; C-lane needs Hedera keys |
 | web3 | C2 real facilitator adapter done (PR open); live-verified vs x402.org without keys | C1 first payment + C3 HCS need owner Hedera keys; C4/C5 need 0G key; C6 needs World client |
 | firmware | owner has the ESP32 and writes firmware later; flasher tool in `tools/flasher` | F1 serial vector test when owner starts; protocol ref: `services/gateway/scripts/sim-device.ts` + `docs/API.md` §2-3 |
 
 ## Decisions in force
-See `docs/DECISIONS.md` (AD001–AD036). AD034 Neon Postgres (replaces SQLite), AD035 Resend behind `Notifier`, AD036 gateway on Render (merged as proposed), AD037 dual Prisma provider (SQLite dev/tests, derived Postgres schema + migrations for Neon). Spec: `docs/SPEC-NEON-RESEND.md`; deploy runbook: `docs/DEPLOY.md`; `render.yaml` blueprint. Neon/Render/Resend keys not set yet; Postgres path unverified against a live Neon DB. Key ones: settle-on-ack; no Solidity; any 0G failure → SAFE_STOP; ports + fakes; layers L0–L3; gateway not serverless; flow never hangs (catch-all + boot recovery); settle fails 3× → device off, CANCELLED unpaid. Known demo risks accepted: WS token in query string, unauthenticated reads/callback (AD032-AD033).
+See `docs/DECISIONS.md` (AD001–AD036). AD034 Neon Postgres (replaces SQLite), AD035 Resend behind `Notifier`, AD036 gateway on Render (merged as proposed), AD037 dual Prisma provider (SQLite dev/tests, derived Postgres schema + migrations for Neon). Spec: `docs/SPEC-NEON-RESEND.md`; deploy runbook: `docs/DEPLOY.md`; `render.yaml` blueprint. N3/N8 merged (#18). N4/N5 (Resend adapter + email hooks + `GET /notifications`) on `be/notifications`. Neon/Render/Resend keys not set yet; Postgres path unverified against a live Neon DB. Key ones: settle-on-ack; no Solidity; any 0G failure → SAFE_STOP; ports + fakes; layers L0–L3; gateway not serverless; flow never hangs (catch-all + boot recovery); settle fails 3× → device off, CANCELLED unpaid. Known demo risks accepted: WS token in query string, unauthenticated reads/callback (AD032-AD033).
 
 ## Blocked on the owner (ask, never invent)
 - Hedera testnet accounts and keys: operator, payTo, agent (payer).

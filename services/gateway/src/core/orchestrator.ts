@@ -17,6 +17,7 @@ import {
   signReceipt,
   withTimeout,
   type DecisionInput,
+  type NotificationKind,
   type PaymentRequirements,
   type SessionState,
 } from "@agentmeter/shared";
@@ -40,9 +41,15 @@ export interface OrchestratorOptions {
   settleBackoffMs?: number;
   /** A session still waiting for a human after this long is cancelled by `expireStaleStepUps`. */
   stepUpTtlSec?: number;
+  /** Recipient for email alerts (AD035). Absent: no notifications. */
+  notifyTo?: string;
+  /** Wait before the single retry of a failed email send. Tests use 0. */
+  notifyRetryMs?: number;
+  hederaNetwork?: string;
 }
 
 const SETTLE_ATTEMPTS = 3;
+const NOTIFY_MAX_PER_HOUR = 20; // protects the free Resend quota and stops mail loops
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export interface SessionEventMsg {
@@ -70,7 +77,8 @@ export class Orchestrator {
   private pending = new Map<string, PendingPayment>();
   private background = new Set<Promise<unknown>>();
   private listeners = new Set<(e: SessionEventMsg) => void>();
-  private readonly o: Required<OrchestratorOptions>;
+  private notifySentAt: number[] = [];
+  private readonly o: Required<Omit<OrchestratorOptions, "notifyTo">> & { notifyTo?: string };
 
   constructor(
     private readonly repos: Repos,
@@ -86,6 +94,8 @@ export class Orchestrator {
       maxSessionsPerWindow: 20,
       settleBackoffMs: 500,
       stepUpTtlSec: 300,
+      notifyRetryMs: 500,
+      hederaNetwork: "testnet",
       ...opts,
     };
   }
@@ -171,6 +181,11 @@ export class Orchestrator {
           sessionId,
           action: { deviceId: device.id, minutes: input.minutes, amount, asset: device.asset, expiresAt: now + this.o.stepUpTtlSec },
         });
+        this.notify("STEP_UP_REQUESTED", sessionId, "AgentMeter: human approval needed", (s) => [
+          `Agent ${s.agentId} wants ${s.minutes} min on device ${s.deviceId} (${s.amount} ${s.asset} base units).`,
+          `Approve with World ID (expires in ${Math.round(this.o.stepUpTtlSec / 60)} min): ${authorizeUrl}`,
+          "The link only starts the World ID check; it cannot approve by itself.",
+        ]);
         return { sessionId, state: "STEP_UP", stepUpUrl: authorizeUrl, done: Promise.resolve() };
       } else {
         this.pending.set(sessionId, { paymentHeader: input.paymentHeader, requirements });
@@ -389,6 +404,7 @@ export class Orchestrator {
     const at = this.ports.clock.now();
     const eventId = await this.repos.sessions.move(sessionId, from, to, at, patch, detail);
     this.emit({ sessionId, state: to, at, detail: detail ?? null });
+    this.notifyOnState(sessionId, to, patch, detail);
     this.bg(async () => {
       const { seq } = await this.ports.audit.append({
         v: 1,
@@ -401,6 +417,80 @@ export class Orchestrator {
       await this.repos.sessions.setEventHcsSeq(eventId, seq);
       await this.repos.sessions.patch(sessionId, { hcsSeq: seq }, at);
     }, "hcs audit");
+  }
+
+  /** Called by the hub when a device drops. Alerts only if a paid session is live on it. */
+  async onDeviceOffline(deviceId: string): Promise<void> {
+    try {
+      const live = await this.repos.sessions.listByStateOlderThan("ACTIVE", this.ports.clock.now() + 1);
+      for (const s of live.filter((x) => x.deviceId === deviceId)) {
+        this.notify("DEVICE_OFFLINE", s.id, `AgentMeter: device ${deviceId} went offline`, () => [
+          `Device ${deviceId} stopped sending heartbeats during session ${s.id}.`,
+          "The device enforces its own timer and switches off at expiry.",
+        ]);
+      }
+    } catch (e) {
+      this.log.warn({ deviceId, err: errMsg(e) }, "device-offline notification skipped");
+    }
+  }
+
+  private notifyOnState(sessionId: string, to: SessionState, patch: SessionPatch, detail?: string) {
+    if (to === "SETTLED") {
+      const tx = patch.hederaTxId;
+      this.notify("SESSION_SETTLED", sessionId, "AgentMeter: session settled", (s) => [
+        `Device ${s.deviceId}, ${s.minutes} min, ${s.amount} ${s.asset} base units.`,
+        ...(tx ? [`Hedera tx ${tx}: https://hashscan.io/${this.o.hederaNetwork}/transaction/${tx}`] : []),
+      ]);
+    } else if (to === "CANCELLED") {
+      this.notify("SESSION_CANCELLED", sessionId, "AgentMeter: session cancelled", (s) => [
+        `Device ${s.deviceId}: ${detail ?? "cancelled"}.`,
+        "Nothing was settled for this session.",
+      ]);
+    } else if (to === "SAFE_STOP") {
+      this.notify("SAFE_STOP", sessionId, "AgentMeter: SAFE_STOP, device left OFF", (s) => [
+        `Device ${s.deviceId}: ${detail ?? "safe stop"}.`,
+        "The device was not switched on and nothing was settled.",
+      ]);
+    }
+  }
+
+  /**
+   * Email alert (AD035). Fire-and-forget after state is persisted: a send failure only marks the
+   * Notification row FAILED, it never changes a session or blocks ack/settle. One retry, hourly cap.
+   */
+  private notify(
+    kind: NotificationKind,
+    sessionId: string,
+    subject: string,
+    lines: (s: { deviceId: string; agentId: string; minutes: number; amount: string; asset: string }) => string[],
+  ) {
+    const to = this.o.notifyTo;
+    const notifier = this.ports.notifier;
+    if (!to || !notifier) return;
+    this.bg(async () => {
+      const now = this.ports.clock.now();
+      const id = `n_${randomUUID()}`;
+      await this.repos.notifications.create({ id, kind, toEmail: to, sessionId, now });
+      const s = await this.repos.sessions.get(sessionId);
+      this.notifySentAt = this.notifySentAt.filter((t) => t > now - 3600);
+      if (!s) return void (await this.repos.notifications.mark(id, "FAILED", { error: "session not found" }));
+      if (this.notifySentAt.length >= NOTIFY_MAX_PER_HOUR) {
+        return void (await this.repos.notifications.mark(id, "FAILED", { error: "rate capped (20/hour)" }));
+      }
+      this.notifySentAt.push(now);
+      const msg = { kind, sessionId, idempotencyKey: `${kind}:${sessionId}`, subject, text: lines(s).join("\n") };
+      let lastErr: unknown;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const r = await notifier.send(msg);
+          return void (await this.repos.notifications.mark(id, "SENT", { providerId: r.id }));
+        } catch (e) {
+          lastErr = e;
+          if (attempt === 1 && this.o.notifyRetryMs > 0) await new Promise((r) => setTimeout(r, this.o.notifyRetryMs));
+        }
+      }
+      await this.repos.notifications.mark(id, "FAILED", { error: errMsg(lastErr).slice(0, 300) });
+    }, "notification");
   }
 
   private recordEpisode(
