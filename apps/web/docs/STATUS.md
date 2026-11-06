@@ -29,7 +29,9 @@ Updated 2026-11-06. Scope: `apps/web/**` only; other lanes' uncommitted work is 
 
 ## Integration boundary
 
-The current production gateway app factory exposes `/health`; dashboard and step-up routes remain separate backend-lane work. This frontend has a loopback HTTP/SSE contract harness to validate its wire behavior. The harness is not a substitute implementation of the gateway domain or OIDC provider.
+The gateway now has REST reads, SSE, the session orchestrator and step-up callback, deployed on Render with fake external adapters and Neon persistence. The production Vercel frontend has been configured with `NEXT_PUBLIC_FIXTURES=0` and `NEXT_PUBLIC_GATEWAY_URL=https://agentmeter-gateway.onrender.com`, then redeployed successfully at https://agentmeter-jet.vercel.app. Public HTTP checks passed for landing, devices, docs and API Markdown; the rendered dashboard reports Live gateway. These checks establish deployment and configuration, not real Hedera/0G/World integration.
+
+One approval seam remains: `startApproval()` requests `POST /stepup/:sessionId/start -> {authorizeUrl}`, while the gateway currently returns a `stepUpUrl` only to the payer during session creation and has no start endpoint. Agent A must supply the provider-URL retrieval contract before the deployed approval button can complete a real flow. See `docs/WORLD_DEBRIEF.md` at the repo root. Browser automation was unavailable in this verification run; the earlier browser checks below remain historical.
 
 Before recording real end-to-end access:
 

@@ -43,6 +43,14 @@ For bigger decisions add a short section below the table using the template at t
 | AD036 | 2026-11-07 | Gateway hosted on Render Web Service (Starter plan); Neon holds data. Laptop is fallback | Needs WebSockets (Vercel cannot). Free web service sleeps and drops device link; Render free Postgres expires, so data stays on Neon | proposed |
 | AD037 | 2026-11-07 | Prisma stays on a SQLite-compatible `schema.prisma` for dev/tests; the Postgres schema and migrations for Neon are derived by `scripts/gen-pg-schema.mjs` and drift-tested | Tests use throwaway SQLite files and CI has no Postgres; avoids rewriting 75+ tests. Risk: Postgres-only behavior (CAS transactions, P2002) is not covered by CI; verify with a live Neon run | accepted |
 
+## Device commissioning decisions
+
+| ID | Date | Decision | Why | Status |
+|---|---|---|---|---|
+| AD038 | 2026-11-06 | Firmware uses rweather Crypto Ed25519 verification and mbedTLS HMAC-SHA256, matching existing receipt/ack contracts | Board self-tests verify the shared vectors and Node-compatible ack MAC; no signature fallback needed | accepted |
+| AD039 | 2026-11-06 | Persist a 32-entry nonce ring atomically in NVS before relay actuation; use an ESP timer plus a monotonic lease deadline | Replay remains rejected after reboot; blocked networking and wall-clock rollback cannot extend paid running time | accepted |
+| AD040 | 2026-11-06 | Render WSS/HTTPS uses an explicit GTS Root R4 CA anchor; compile time only bootstraps certificate checks, never receipt authorization | Library default/null bundle can fall back to insecure TLS; fresh NTP or verified HTTPS Date is required before unlock | accepted |
+
 ## Template
 
 ```
