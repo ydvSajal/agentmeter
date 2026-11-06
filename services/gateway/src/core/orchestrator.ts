@@ -75,6 +75,8 @@ interface PendingPayment {
 export class Orchestrator {
   // ponytail: in-memory pending payments; a restart loses them, so `recoverOrphans` cancels every unsettled session at boot.
   private pending = new Map<string, PendingPayment>();
+  /** World authorize URL per session waiting on a human. In memory like `pending`: boot recovery cancels STEP_UP sessions anyway. */
+  private stepUpAuth = new Map<string, string>();
   private background = new Set<Promise<unknown>>();
   private listeners = new Set<(e: SessionEventMsg) => void>();
   private notifySentAt: number[] = [];
@@ -186,6 +188,7 @@ export class Orchestrator {
           `Approve with World ID (expires in ${Math.round(this.o.stepUpTtlSec / 60)} min): ${authorizeUrl}`,
           "The link only starts the World ID check; it cannot approve by itself.",
         ]);
+        this.stepUpAuth.set(sessionId, authorizeUrl);
         return { sessionId, state: "STEP_UP", stepUpUrl: authorizeUrl, done: Promise.resolve() };
       } else {
         this.pending.set(sessionId, { paymentHeader: input.paymentHeader, requirements });
@@ -205,6 +208,7 @@ export class Orchestrator {
    */
   async completeStepUp(cb: { code?: string; state: string; error?: string }) {
     const r = await this.ports.stepUp.complete(cb); // throws on unknown/reused state
+    this.stepUpAuth.delete(r.sessionId);
     const expired = () => new AgentMeterError("STEP_UP_EXPIRED", "step-up is no longer pending (expired or cancelled)", r.sessionId);
     const approved = r.result === "APPROVED";
     if (approved && !this.pending.has(r.sessionId)) throw expired();
@@ -220,6 +224,17 @@ export class Orchestrator {
     return { ...r, done: approved ? this.decideAndIssue(r.sessionId) : Promise.resolve() };
   }
 
+  /** Authorize URL for POST /stepup/:id/start. Only while the session is still waiting on a human. */
+  async stepUpAuthorizeUrl(sessionId: string): Promise<string> {
+    const s = await this.repos.sessions.get(sessionId);
+    if (!s) throw new AgentMeterError("NOT_FOUND", "session not found");
+    const url = this.stepUpAuth.get(sessionId);
+    if (s.state !== "STEP_UP" || !url) {
+      throw new AgentMeterError("STEP_UP_EXPIRED", "no step-up is pending for this session (expired, decided or restarted)", sessionId);
+    }
+    return url;
+  }
+
   /** Cancel sessions that waited for a human longer than `stepUpTtlSec`. Never throws (runs on a timer). */
   async expireStaleStepUps(): Promise<void> {
     try {
@@ -228,6 +243,7 @@ export class Orchestrator {
         try {
           await this.move(s.id, "STEP_UP", "CANCELLED", {}, "step-up expired");
           this.pending.delete(s.id);
+          this.stepUpAuth.delete(s.id);
         } catch (e) {
           this.log.warn({ sessionId: s.id, err: errMsg(e) }, "step-up expiry skipped (session moved meanwhile)");
         }

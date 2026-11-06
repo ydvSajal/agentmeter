@@ -2,9 +2,13 @@
 
 **Read this first after any context compaction.** It is auto-printed by the `SessionStart` (compact) hook in `.claude/settings.json`. Update it at every milestone and before ending a session (rule in `CLAUDE.md`). Keep it short: facts that survive compaction, not narrative.
 
-_Last updated: 2026-11-07 by Agent B (`agent-b/firmware-web-docs`; 24/24 on-board tests passed)_
+_Last updated: 2026-11-07 by Claude (device bring-up on `fix/device-approval`: local paid unlock verified on hardware)_
 
 ## Where we are
+- **Hardware verified locally (2026-11-07, COM3 ESP32-S3 on laptop hotspot -> local gateway :8790, fake facilitator):** paid session -> receipt verified on device -> relay ON + HMAC ack -> SETTLED; same payment replayed -> 409 PAYMENT_REPLAY; relay turned OFF by the device timer at +61s. Root cause of the earlier "WIFI WAIT/CONNECTING" was the hotspot DHCP lease having **no DNS** (AD042); firmware now falls back to 8.8.8.8/1.1.1.1.
+- **Render prod is NOT provisioned for the board:** the WS probe with the token in `secrets.h` gets HTTP 401 (token/HMAC differ from the Neon device row) and `secrets.h` has no `RECEIPT_PUBLIC_KEY_BASE64`/`DEVICE_HMAC_SECRET` (device fails closed). Owner must set matching values (Neon `Device.tokenHash/hmacSecret`, Render `RECEIPT_SIGNING_KEY_ED25519`) and put the public key in `secrets.h`. Board is currently flashed in **local mode** (192.168.137.1:8790); Render-mode copy of secrets is kept outside git.
+- Approval endpoint mismatch fixed: gateway now serves `POST /stepup/:sessionId/start -> {authorizeUrl}` (only while the session is STEP_UP). Real World redirect URI still needs registering.
+- Not yet merged to main: branch `fix/device-approval` (agent-b firmware/docs merge + step-up route + DNS fallback). Render redeploy of main also needs `WEB_ORIGIN`, `AUTH_COOKIE_SAMESITE=None`, `AUTH_COOKIE_SECURE=true` and Neon migration `0002_auth` (AD038).
 - Dashboard login shipped (AD038): `/login`, `/register`, gateway `/auth/*`, protected dashboard reads. Fixture mode (`NEXT_PUBLIC_FIXTURES=1`) skips login. Postgres migration `0002_auth` needs `pnpm --filter @agentmeter/db migrate:pg` against Neon.
 - Backend B1–B6/B8 and web W1–W8 are implemented/merged. Gateway domain/scenarios use fake external adapters. Neon and Render are deployed; Vercel production is now configured for Render and redeployed Ready.
 - Agent A owns payer CLI, real Hedera/HCS/0G/World adapters and gateway port wiring. G1 (real payment) and the full paid physical-device unlock remain unproven.

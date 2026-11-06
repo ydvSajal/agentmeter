@@ -54,6 +54,10 @@ export function mountApi(app: Hono, ctx: ApiContext, log: Logger) {
     return c.json(sessionView(s));
   });
 
+  // Called by the web step-up page (apps/web startApproval). Open on purpose: it only reveals the World
+  // authorize URL, and approval still needs a fresh World login bound to this session's single-use state.
+  app.post("/stepup/:id/start", async (c) => c.json({ authorizeUrl: await orchestrator.stepUpAuthorizeUrl(c.req.param("id")) }));
+
   // --- World step-up callback (forwarded server-side by apps/web /api/world/callback) ---------
   app.get("/stepup/callback", async (c) => {
     const state = c.req.query("state");

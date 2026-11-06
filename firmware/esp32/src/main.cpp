@@ -108,7 +108,15 @@ static void syncGatewayClock() {
   const int status = http.GET();
   const String date = http.header("Date");
   http.end();
-  if (status != 200 || date.length() != 29) return;
+  if (status != 200 || date.length() != 29) {
+    IPAddress ip;
+    const bool dns = WiFi.hostByName(GATEWAY_HOST, ip);
+    char tlsErr[100] = "n/a";
+    if (WS_TLS) secure.lastError(tlsErr, sizeof(tlsErr));
+    Serial.printf("[time] gateway clock sync failed: http %d dns=%d ip=%s dnsServer=%s tls=\"%s\" now=%ld\n", status, (int)dns,
+                  ip.toString().c_str(), WiFi.dnsIP().toString().c_str(), tlsErr, (long)time(nullptr));
+    return;
+  }
   struct tm utc = {};
   const char *end = strptime(date.c_str(), "%a, %d %b %Y %H:%M:%S GMT", &utc);
   if (!end || *end || utc.tm_year < 123 || utc.tm_year > 200) return;
@@ -328,7 +336,22 @@ void loop() {
 #endif
   if (timerExpired || lease.expired(time(nullptr), millis())) { stopRelay(); if (wsUp) sendHeartbeat(); }
   if (WiFi.status() != WL_CONNECTED && lease.active) stopRelay();
+  // Windows Mobile Hotspot (ICS) can hand out a lease with no DNS server, so neither NTP nor the gateway
+  // host name resolves. Keep the leased IP and add public resolvers once per connection.
+  static bool dnsPatched = false;
+  if (WiFi.status() != WL_CONNECTED) dnsPatched = false;
+  else if (!dnsPatched && WiFi.dnsIP() == IPAddress(0, 0, 0, 0)) {
+    dnsPatched = true;
+    WiFi.config(WiFi.localIP(), WiFi.gatewayIP(), WiFi.subnetMask(), IPAddress(8, 8, 8, 8), IPAddress(1, 1, 1, 1));
+    Serial.println("[net] no DNS from DHCP: using 8.8.8.8 / 1.1.1.1");
+  }
   syncGatewayClock();
+  static uint32_t lastDiag = 0;
+  if (millis() - lastDiag >= 10000) {  // one line every 10s so a silent board is diagnosable over serial
+    lastDiag = millis();
+    Serial.printf("[diag] wifi=%d rssi=%d ip=%s synced=%d ws=%d relay=%d\n", (int)WiFi.status(), WiFi.RSSI(),
+                  WiFi.localIP().toString().c_str(), (int)synced(), (int)wsUp, (int)lease.active);
+  }
   // Start the socket only once WiFi is up and the clock is NTP-synced (receipts need the clock).
   if (!wsStarted && WiFi.status() == WL_CONNECTED && synced()) {
     const String path = String("/devices/") + DEVICE_ID + "?token=" + encodedToken(DEVICE_TOKEN);

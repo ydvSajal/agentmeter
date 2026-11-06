@@ -51,6 +51,7 @@ For bigger decisions add a short section below the table using the template at t
 | AD039 | 2026-11-06 | Firmware uses rweather Crypto Ed25519 verification and mbedTLS HMAC-SHA256, matching existing receipt/ack contracts | Board self-tests verify the shared vectors and Node-compatible ack MAC; no signature fallback needed | accepted |
 | AD040 | 2026-11-06 | Persist a 32-entry nonce ring atomically in NVS before relay actuation; use an ESP timer plus a monotonic lease deadline | Replay remains rejected after reboot; blocked networking and wall-clock rollback cannot extend paid running time | accepted |
 | AD041 | 2026-11-06 | Render WSS/HTTPS uses an explicit GTS Root R4 CA anchor; compile time only bootstraps certificate checks, never receipt authorization | Library default/null bundle can fall back to insecure TLS; fresh NTP or verified HTTPS Date is required before unlock | accepted |
+| AD042 | 2026-11-07 | Firmware patches DNS to 8.8.8.8 / 1.1.1.1 when DHCP supplies none | Windows Mobile Hotspot (ICS) leases carry no DNS; NTP and the gateway host never resolved, so the board sat at WIFI WAIT/CONNECTING | accepted |
 
 ## Template
 
