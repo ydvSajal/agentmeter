@@ -2,16 +2,17 @@
 
 **Read this first after any context compaction.** It is auto-printed by the `SessionStart` (compact) hook in `.claude/settings.json`. Update it at every milestone and before ending a session (rule in `CLAUDE.md`). Keep it short: facts that survive compaction, not narrative.
 
-_Last updated: 2026-11-07 by core/backend session (N1+N2 merged; N3+N8 Neon Postgres + Render config on `be/neon-postgres`)_
+_Last updated: 2026-11-07 by Agent B (`agent-b/firmware-web-docs`; 24/24 on-board tests passed)_
 
 ## Where we are
 - Dashboard login shipped (AD038): `/login`, `/register`, gateway `/auth/*`, protected dashboard reads. Fixture mode (`NEXT_PUBLIC_FIXTURES=1`) skips login. Postgres migration `0002_auth` needs `pnpm --filter @agentmeter/db migrate:pg` against Neon.
-- Phase: lanes open. Gate **G0 passed** (2026-11-06). Next gates: G1 first Hedera payment (needs owner keys), G2 firmware verify.
-- Recommended first lanes (no keys needed): backend B1–B6 (`services/gateway`) and web W1–W3 (`apps/web`); firmware F1 if the ESP32 is in hand; web3 C1 is blocked on Hedera keys.
-- Implemented: scaffolding + shared contracts only. No Hedera/0G/World keys exist yet; no lane code yet.
+- Backend B1–B6/B8 and web W1–W8 are implemented/merged. Gateway domain/scenarios use fake external adapters. Neon and Render are deployed; Vercel production is now configured for Render and redeployed Ready.
+- Agent A owns payer CLI, real Hedera/HCS/0G/World adapters and gateway port wiring. G1 (real payment) and the full paid physical-device unlock remain unproven.
+- Agent B owns firmware, web deployment and docs. Receipt verification, persistent replay guard, timer, authenticated ack and CA-verified WSS compile; 24/24 on-board tests passed, relay OFF. Small-OLED status/countdown UI flashed. Windows hotspot was OFF (OLED WIFI WAIT); actual Render WSS is pending Wi-Fi restoration. Details: `docs/AGENT-B-HANDOFF.md`.
 
 ## Deployed (2026-11-06)
 - Gateway: https://agentmeter-gateway.onrender.com (Render free, Singapore, service srv-dbn08gh5efls738ogo90, `ADAPTERS=fake`, `NOTIFY_ENABLED=false`). `/health` ok, db ok.
+- Web: https://agentmeter-jet.vercel.app (Vercel `agentmeter`, root `apps/web`). Production `NEXT_PUBLIC_GATEWAY_URL` and `GATEWAY_SERVER_URL` point to Render, `NEXT_PUBLIC_FIXTURES=0`. Landing/devices/docs/Markdown return HTTP 200; rendered dashboard says Live gateway.
 - DB: Neon project `agentmeter` (raspy-silence-29998914), migration 0001 applied, device d1 + agent a1 seeded. Secrets live in Render env only.
 - Placeholder Hedera IDs (0.0.1001/1002) until owner keys. Free plan sleeps and drops device WS: upgrade to Starter for demo. Resend not wired: needs RESEND_API_KEY + NOTIFY_TO, then NOTIFY_ENABLED=true.
 
@@ -26,20 +27,20 @@ _Last updated: 2026-11-07 by core/backend session (N1+N2 merged; N3+N8 Neon Post
 ## Lanes (parallel sessions via worktrees, see `docs/WORKFLOW.md`)
 | Lane | Status | Next task |
 |---|---|---|
-| core | K1–K4 done. N1 (#16 spec + AD034–036) and N2 (#17 `Notifier` port + `FakeNotifier`) **merged** | firmware `WS_TLS` (needed for wss to Render); N6 web audit list shows `/notifications` |
-| web | not started | W1 scaffold Next.js after G0 |
+| core | K1–K4, N1/N2 done; Agent B adds README flow/evidence, architecture SVG and World debrief | Fill real sponsor evidence after Agent A's live runs |
+| web | W1–W8 merged; Vercel redeployed with live gateway configuration | Approval-start URL contract from Agent A; real World end-to-end check |
 | backend | B1-B6, B8 done; fail-safe hardening (#13) merged. `pnpm demo:scenarios` runs 8 demo cases (35 checks) against the real gateway + simulated ESP32 on fakes; also a CI step | B7 agent CLI (real signer needs owner Hedera keys); real adapters C1/C3/C4/C5/C6 |
-| web3 | C2 real facilitator adapter done (PR open); live-verified vs x402.org without keys | C1 first payment + C3 HCS need owner Hedera keys; C4/C5 need 0G key; C6 needs World client |
-| firmware | owner has the ESP32 and writes firmware later; flasher tool in `tools/flasher` | F1 serial vector test when owner starts; protocol ref: `services/gateway/scripts/sim-device.ts` + `docs/API.md` §2-3 |
+| web3 | C2 real facilitator adapter merged; other real adapters belong to Agent A | C1 first payment + C3 HCS need owner Hedera keys; C4/C5 need 0G key; C6 needs World client |
+| firmware | ESP32-S3 Wi-Fi/NTP/WS/OLED merged. Agent B receipt/TLS and self-test builds compile | Run on-board tests; pin production public key and device HMAC/token; confirm GPIO4 active-low and physical relay behavior |
 
 ## Decisions in force
-See `docs/DECISIONS.md` (AD001–AD036). AD034 Neon Postgres (replaces SQLite), AD035 Resend behind `Notifier`, AD036 gateway on Render (merged as proposed), AD037 dual Prisma provider (SQLite dev/tests, derived Postgres schema + migrations for Neon). Spec: `docs/SPEC-NEON-RESEND.md`; deploy runbook: `docs/DEPLOY.md`; `render.yaml` blueprint. N3/N8 merged (#18). N4/N5 (Resend adapter + email hooks + `GET /notifications`) on `be/notifications`. Neon/Render/Resend keys not set yet; Postgres path unverified against a live Neon DB. Key ones: settle-on-ack; no Solidity; any 0G failure → SAFE_STOP; ports + fakes; layers L0–L3; gateway not serverless; flow never hangs (catch-all + boot recovery); settle fails 3× → device off, CANCELLED unpaid. Known demo risks accepted: WS token in query string, unauthenticated reads/callback (AD032-AD033).
+See `docs/DECISIONS.md`: settle-on-ack, any 0G failure → SAFE_STOP, ports/fakes and L0–L3 layers. AD034–AD037 cover Neon, Resend, Render and dual Prisma providers (SQLite dev/tests, derived Postgres schema/migrations for Neon). Neon/Render are live; Resend is disabled pending credentials. Catch-all + boot recovery prevent hanging sessions; failed settlement switches the device off. Deployment: `docs/DEPLOY.md`, `render.yaml`. Known accepted demo risks: WS token in query string, unauthenticated reads/callback (AD032–AD033).
 
 ## Blocked on the owner (ask, never invent)
 - Hedera testnet accounts and keys: operator, payTo, agent (payer).
 - 0G API key + credits (pc.0g.ai, booth); 0G Storage wallet.
 - World portal client (auth.world.org/portal) and redirect URI.
-- Hardware: ESP32, relay, low-voltage load.
+- Hardware commissioning: confirm relay GPIO4/polarity and low-voltage load; production device token/HMAC and gateway public receipt-signing key.
 - Submission deadline (reported Sun 8 Nov 09:00 IST, not on prizes page).
 
 ## Open technical questions

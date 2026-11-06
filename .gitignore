@@ -11,3 +11,4 @@ dist/
 secrets.h
 .worktrees/
 *.tsbuildinfo
+.vercel/
