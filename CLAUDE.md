@@ -21,6 +21,15 @@ Agents pay per minute over x402 on Hedera to switch on a physical device (ESP32 
 - Decisions also go to `docs/DECISIONS.md`; STATE.md only points at them.
 - A hook cannot write for you. Keeping STATE.md current is your job.
 
+## Local bring-up (verified 2026-11-07, Windows)
+- Gateway on SQLite: `pnpm --filter @agentmeter/db exec prisma db push --skip-generate && pnpm --filter @agentmeter/db seed`, then `PORT=8790 pnpm --filter @agentmeter/gateway start` (a stale dev gateway may already hold 8787; check with `Get-NetTCPConnection -LocalPort 8787` before killing anything).
+- Dashboard: `NEXT_PUBLIC_FIXTURES=0 NEXT_PUBLIC_GATEWAY_URL=http://127.0.0.1:8790 pnpm --filter @agentmeter/web dev`, open `http://127.0.0.1:3000` (use 127.0.0.1, not `localhost`, or the login cookie is cross-site). Create an account at `/register`. `NEXT_PUBLIC_FIXTURES=1` skips login for demos.
+- Auth (AD038): gateway owns email+password accounts; dashboard reads need the `am_session` cookie; `GET /sessions/:id`, `/stepup/*`, `/health` and the x402 POST stay open. Production on different domains needs `WEB_ORIGIN=<dashboard origin>`, `AUTH_COOKIE_SAMESITE=None`, `AUTH_COOKIE_SECURE=true` on the gateway and migration `0002_auth` applied to Neon.
+- Step-up: web page calls `POST /stepup/:sessionId/start` and gets `{authorizeUrl}`; the URL is held in memory per session and only valid while the session is `STEP_UP`.
+- Board (ESP32-S3, CH343 on COM3, relay GPIO4 active-low): `firmware/esp32/src/secrets.h` is git-ignored, copy it from another worktree (`.worktrees/agent-b/firmware/esp32/src/secrets.h`). Flash: `pio run -e esp32-s3 -t upload --upload-port COM3`. Read serial with the RTS reset trick in `firmware/esp32/scripts/read-serial.py` (pulse RTS to see boot logs). The firmware prints a `[diag]` line every 10s.
+- Windows Mobile Hotspot (SSID in `secrets.h`, gateway 192.168.137.1) hands out a lease with **no DNS**; the firmware now falls back to 8.8.8.8 / 1.1.1.1.
+- Tooling gotcha: the Bash tool collapses `\\` and mangles `\n` inside `node -e` / heredoc scripts. Use the Edit tool for any code containing backslashes or regexes.
+
 ## Parallel lanes (see `docs/WORKFLOW.md`)
 Work is split so separate sessions can run in parallel via git worktrees. **Edit only inside your lane's folder.**
 - core: `packages/shared`, `docs`, root config. Lands first; owns contracts.

@@ -4,7 +4,38 @@ AI agents rent real machines (charger, locker, printer, rover) by paying **per m
 
 Built at ETHGlobal Mumbai 2026 on top of [Paybot](https://github.com/superposition/paybot) (ETHGlobal Buenos Aires 2025). See [Credits](#credits).
 
-> Status: setup done (docs, monorepo scaffold, shared contracts with receipt crypto merged). Lane work (gateway, web, web3 adapters, firmware) has not started. Items marked **(verify)** are unconfirmed facts to check before relying on them.
+> Status: the gateway/domain flow, database repositories, dashboard and scenario runner are implemented. The gateway is deployed on Render with Neon and **fake payment/0G/World/audit adapters**. The web app is deployed on Vercel. Firmware receipt verification and TLS are being validated in the Agent B branch. A real paid hardware unlock has not yet been demonstrated. Items marked **(verify)** below remain historical integration questions, not proof of success.
+
+Live dashboard: https://agentmeter-jet.vercel.app · gateway health: https://agentmeter-gateway.onrender.com/health.
+Deployment setup: [docs/DEPLOY.md](docs/DEPLOY.md). Firmware setup and acceptance: [firmware/esp32/README.md](firmware/esp32/README.md).
+
+## The six-step payment flow
+
+1. **Request:** the autonomous payer requests device minutes; the gateway returns x402 `402 Payment Required` with price, network and recipient.
+2. **Verify:** the payer signs and retries. The facilitator verifies the payment; the gateway checks replay, allowlist, daily cap and rate. Nothing is settled yet.
+3. **Approve when needed:** spending above the threshold waits for fresh World ID approval bound to the exact device, duration and amount. Denial or expiry cancels the session.
+4. **Decide:** 0G evaluates device state. DENY, malformed output, errors or a timeout produce `SAFE_STOP`; no unlock receipt is issued.
+5. **Unlock:** after ALLOW the gateway signs an expiring Ed25519 receipt. The device checks signature, identity, time and replay, saves the nonce, starts its local relay timer and sends an authenticated ack.
+6. **Settle and record:** only a valid device ack permits settlement. Store the Hedera tx ID, 0G request/root and HCS sequence; the dashboard displays the evidence. No ack means no settlement. Relay expiry runs locally.
+
+**What breaks if 0G is removed?** A real device unlock cannot be authorized: the decision stage must fail closed with `SAFE_STOP`. A configured fake decider is a development simulation and is not evidence of 0G use.
+
+![AgentMeter architecture](docs/architecture.svg)
+
+## Integration evidence
+
+| Evidence | Current result |
+|---|---|
+| Gateway + Neon | Render `/health` verified with `ok:true`, `db:ok`; adapters still fake |
+| Vercel frontend | Production redeploy Ready; landing/devices/docs/Markdown HTTP 200; dashboard renders Live gateway |
+| First real Hedera x402 tx / HashScan link (G1) | Pending Agent A + funded payer credentials |
+| HCS topic and real message sequence | Pending real logger + operator credentials |
+| Real 0G Compute request ID | Pending real decider + API credits |
+| Real 0G Storage root hash | Pending real storage adapter + funded wallet |
+| Real World approve/deny/expiry | Pending client + adapter; [debrief](docs/WORLD_DEBRIEF.md) |
+| Verified receipt → physical relay → authenticated ack → settlement | Pending hardware acceptance; simulated scenarios are separate evidence |
+
+Never substitute IDs emitted by fake adapters for real transaction or sponsor evidence.
 
 ## Quick start
 
@@ -13,7 +44,7 @@ Prerequisites: Node 22+ (scripts run `.ts` directly on Node ≥22.18), pnpm 11, 
 ```bash
 pnpm install
 cp .env.example .env                           # fill later; ADAPTERS=fake needs no keys
-pnpm typecheck && pnpm test                    # 14 tests in packages/shared
+pnpm typecheck && pnpm test                    # workspace checks, including receipt vectors
 node packages/shared/scripts/gen-keys.ts       # new receipt-signing seed + public key to pin in firmware
 pnpm demo:scenarios                            # 8 demo cases against the real gateway + simulated ESP32 (no keys, no hardware)
 ```
@@ -197,7 +228,7 @@ flowchart TB
 
 | Component | Runs on | Why |
 |---|---|---|
-| Gateway | Render Web Service (Starter). Fallback: laptop | Needs long-lived WebSockets, so **not Vercel serverless** (AD036) |
+| Gateway | Render free currently; laptop fallback | Needs long-lived WebSockets. Starter upgrade for the demo awaits owner spend approval |
 | Dashboard | Laptop `:3000`, or Vercel | Static/SSR is fine on Vercel; it must reach the gateway over a public URL |
 | Agent | Laptop | Holds the Hedera payer key; never deployed |
 | ESP32 | Phone hotspot | Venue Wi-Fi often isolates clients. Device connects **outbound** to the gateway; laptop must be on the same hotspot, or use the tunnel |
@@ -311,7 +342,7 @@ Each section: **source** (what we reuse), **how it plugs in**, **contract**, **k
 
 ### 2.12 Persistence (`packages/db`)
 
-Prisma + Neon Postgres (`DATABASE_URL` pooled, `DIRECT_URL` for migrations; AD034). Models per PRD §7: `Device`, `Agent`, `Session`, `StepUp`, `UsedNonce`, plus `Notification` (email log, AD035).
+Prisma + Neon Postgres (`DATABASE_URL` pooled, `DIRECT_URL` for migrations; AD034); SQLite remains the local/test provider (AD037). Models include `Device`, `Agent`, `Session`, `SessionEvent`, `StepUp`, `UsedNonce` and `Notification` (email log, AD035).
 
 ---
 

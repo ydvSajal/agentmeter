@@ -3,6 +3,30 @@ import { resolve } from "node:path";
 
 export const documents = [
   {
+    slug: "deployment",
+    title: "Deployment",
+    group: "Build",
+    description:
+      "Vercel frontend, Render gateway, Neon persistence and callback settings.",
+    file: "../../docs/DEPLOY.md",
+  },
+  {
+    slug: "firmware",
+    title: "Device firmware",
+    group: "Build",
+    description:
+      "ESP32-S3 setup, verified receipts, TLS, the OLED and on-board tests.",
+    file: "../../firmware/esp32/README.md",
+  },
+  {
+    slug: "world-debrief",
+    title: "World ID integration",
+    group: "Project",
+    description:
+      "Exact-action approval, callback configuration and live evidence still to collect.",
+    file: "../../docs/WORLD_DEBRIEF.md",
+  },
+  {
     slug: "getting-started",
     title: "Getting started",
     group: "Start here",

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="760" viewBox="0 0 1240 760" role="img" aria-labelledby="title desc">
+  <title id="title">AgentMeter architecture</title>
+  <desc id="desc">Agent payer requests the Render gateway. The gateway uses Neon, payment verification, World step-up and 0G decisions. A signed receipt reaches an ESP32 over WSS. The device verifies it and sends an HMAC ack before settlement. Audit evidence reaches the Vercel dashboard. External service adapters remain under integration.</desc>
+  <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 9 4.5 0 9" fill="none" stroke="#53646a" stroke-width="1.5"/></marker></defs>
+  <rect width="1240" height="760" fill="#f6f4ed"/>
+  <g font-family="Arial, sans-serif" fill="#18363d">
+    <text x="48" y="58" font-size="30" font-weight="700">AgentMeter</text>
+    <text x="48" y="87" font-size="16">Payment verifies first. Device ack permits settlement. Local expiry switches the relay off.</text>
+    <g fill="#fff" stroke="#9aaba8" stroke-width="1.5">
+      <rect x="48" y="157" width="234" height="120" rx="10"/>
+      <rect x="375" y="139" width="440" height="320" rx="10" fill="#e4eee8"/>
+      <rect x="910" y="157" width="282" height="170" rx="10"/>
+      <rect x="48" y="365" width="234" height="128" rx="10"/>
+      <rect x="910" y="393" width="282" height="100" rx="10"/>
+      <rect x="48" y="569" width="1144" height="123" rx="10" stroke-dasharray="7 5"/>
+    </g>
+    <g font-size="20" font-weight="700">
+      <text x="69" y="192">Autonomous payer</text><text x="398" y="178">Gateway · Render</text>
+      <text x="933" y="192">ESP32-S3 + relay</text><text x="69" y="401">Dashboard · Vercel</text>
+      <text x="933" y="429">Neon Postgres</text><text x="69" y="603">External adapters · real-service evidence pending</text>
+    </g>
+    <g font-size="16">
+      <text x="69" y="222">x402 signature + retry</text><text x="69" y="246">Agent CLI: Agent A</text>
+      <text x="398" y="215">Verify → policy → human step-up</text><text x="398" y="246">0G ALLOW → sign receipt → push</text>
+      <text x="398" y="277">Valid device ack → settle → persist</text><text x="398" y="318">Replay / cap / rate controls</text>
+      <text x="398" y="349">0G failure → SAFE_STOP</text><text x="398" y="380">No ack → no settlement</text>
+      <text x="398" y="425">REST + SSE · device WebSocket hub</text>
+      <text x="933" y="225">Ed25519 + device + time</text><text x="933" y="253">Persistent nonce replay guard</text>
+      <text x="933" y="281">Local timer + HMAC ack</text><text x="933" y="307">Boot / disconnect → OFF</text>
+      <text x="69" y="432">Fleet · budget · audit</text><text x="69" y="461">World callback forwarding</text>
+      <text x="933" y="459">Sessions · events · approvals</text>
+      <text x="69" y="637">Hedera x402 facilitator / settlement + HCS</text>
+      <text x="69" y="665">0G Compute decisions + Storage episodes</text>
+      <text x="673" y="637">World OIDC + PKCE</text><text x="673" y="665">Optional Resend alerts</text>
+    </g>
+    <g fill="none" stroke="#53646a" stroke-width="1.7" marker-end="url(#arrow)">
+      <path d="M282 210H375"/><path d="M815 204H910"/><path d="M910 294H815"/>
+      <path d="M375 423H282"/><path d="M815 438H910"/><path d="M596 459V569"/>
+    </g>
+    <g font-size="13" fill="#53646a"><text x="298" y="193">HTTP</text><text x="836" y="191">WSS</text><text x="833" y="282">ack</text><text x="295" y="407">SSE</text></g>
+    <text x="48" y="731" font-size="14" fill="#53646a">Deployment currently uses fake adapters. Diagram shows the intended complete flow; it does not claim a real paid hardware unlock.</text>
+  </g>
+</svg>

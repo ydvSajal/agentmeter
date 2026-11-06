@@ -157,6 +157,19 @@ describe("POST /devices/:id/session", () => {
     expect(device.received).toHaveLength(1); // only the approved one reached the device
   });
 
+  it("POST /stepup/:id/start returns the authorize URL only while the session waits for a human", async () => {
+    const { sessionId, stepUpUrl } = await (await post({ minutes: 30, agentId: "a1" }, pay())).json();
+    const start = await app.request(`/stepup/${sessionId}/start`, { method: "POST" });
+    expect(start.status).toBe(200);
+    expect(await start.json()).toEqual({ authorizeUrl: stepUpUrl });
+    const st = new URL(stepUpUrl).searchParams.get("state")!;
+    await app.request(`/stepup/callback?state=${st}&error=access_denied`);
+    const after = await app.request(`/stepup/${sessionId}/start`, { method: "POST" });
+    expect(after.status).toBe(403);
+    expect(ErrorBody.parse(await after.json()).error.code).toBe("STEP_UP_EXPIRED");
+    expect((await app.request("/stepup/nope/start", { method: "POST" })).status).toBe(404);
+  });
+
   it("step-up callback state is single use and required", async () => {
     expect((await app.request("/stepup/callback")).status).toBe(400);
     expect((await app.request("/stepup/callback?state=bogus")).status).toBe(403);

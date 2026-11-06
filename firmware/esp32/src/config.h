@@ -1,5 +1,5 @@
 #pragma once
-#define FW_VERSION "0.1-f3f4"
+#define FW_VERSION "0.2-receipts"
 
 // Pins (ESP32-S3 DevKitC-1)
 constexpr int PIN_SDA = 8;
