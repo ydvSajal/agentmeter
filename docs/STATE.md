@@ -9,6 +9,11 @@ _Last updated: 2026-11-07 by core/backend session (N1+N2 merged; N3+N8 Neon Post
 - Recommended first lanes (no keys needed): backend B1–B6 (`services/gateway`) and web W1–W3 (`apps/web`); firmware F1 if the ESP32 is in hand; web3 C1 is blocked on Hedera keys.
 - Implemented: scaffolding + shared contracts only. No Hedera/0G/World keys exist yet; no lane code yet.
 
+## Deployed (2026-11-06)
+- Gateway: https://agentmeter-gateway.onrender.com (Render free, Singapore, service srv-dbn08gh5efls738ogo90, `ADAPTERS=fake`, `NOTIFY_ENABLED=false`). `/health` ok, db ok.
+- DB: Neon project `agentmeter` (raspy-silence-29998914), migration 0001 applied, device d1 + agent a1 seeded. Secrets live in Render env only.
+- Placeholder Hedera IDs (0.0.1001/1002) until owner keys. Free plan sleeps and drops device WS: upgrade to Starter for demo. Resend not wired: needs RESEND_API_KEY + NOTIFY_TO, then NOTIFY_ENABLED=true.
+
 ## Repo and PRs
 - GitHub: https://github.com/ydvSajal/agentmeter (public, MIT). Default branch `main`.
 - PRs #1 (docs), #2 (scaffold), #3 (shared contracts) are **merged into `main`** (merge commits, CI green). Lanes may now branch from `main`. Stacked-PR procedure for future work: `docs/WORKFLOW.md` §3.
