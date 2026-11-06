@@ -336,6 +336,13 @@ void loop() {
 #endif
   if (timerExpired || lease.expired(time(nullptr), millis())) { stopRelay(); if (wsUp) sendHeartbeat(); }
   if (WiFi.status() != WL_CONNECTED && lease.active) stopRelay();
+  // Onboard RGB LED mirrors the relay so activation is visible with no load attached: green = paid access on.
+  // Updated here, not in the timer callback, because the LED driver is not safe to call from the timer task.
+  static bool ledOn = false;
+  if (relayOn != ledOn) {
+    ledOn = relayOn;
+    rgbLedWrite(RGB_BUILTIN, 0, ledOn ? 60 : 0, 0);
+  }
   // Windows Mobile Hotspot (ICS) can hand out a lease with no DNS server, so neither NTP nor the gateway
   // host name resolves. Keep the leased IP and add public resolvers once per connection.
   static bool dnsPatched = false;
