@@ -32,6 +32,14 @@ describe("facilitator http", () => {
     expect(r).toMatchObject({ success: false, errorReason: "unexpected_settle_error", errorMessage: "node down" });
   });
 
+  it("serves only allow-listed payees", async () => {
+    const app = createApp({ core, allowPayTo: ["0.0.9"] });
+    const req = (payTo: string) =>
+      JSON.stringify({ x402Version: 2, paymentPayload: {}, paymentRequirements: { network: "hedera:testnet", payTo } });
+    expect(await (await post(app, "/verify", req("0.0.666"))).json()).toMatchObject({ isValid: false, invalidReason: "pay_to_not_served" });
+    expect(await (await post(app, "/verify", req("0.0.9"))).json()).toMatchObject({ isValid: true });
+  });
+
   it("rate-limits account creation per IP", async () => {
     let n = 0;
     const app = createApp({ core, createAccount: async () => ({ accountId: `0.0.${++n}`, initialHbar: 3 }), accountLimits: { perIpPerHour: 2, total: 10 } });

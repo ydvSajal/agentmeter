@@ -24,6 +24,8 @@ const env = z
     FACILITATOR_ACCOUNT_ID: z.string().regex(/^0\.0\.\d+$/),
     FACILITATOR_PRIVATE_KEY: z.string().min(64), // DER (ECDSA or ED25519)
     FACILITATOR_API_KEY: z.string().min(16).optional(),
+    // Comma-separated payee accounts this facilitator serves (empty = any).
+    FACILITATOR_ALLOW_PAYTO: z.string().default(""),
     // Testnet drip for browser wallets. 0 disables POST /accounts.
     ACCOUNT_DRIP_HBAR: z.coerce.number().min(0).max(20).default(3),
   })
@@ -68,6 +70,7 @@ const log = (msg: string, extra?: Record<string, unknown>) =>
 const app = createApp({
   core,
   apiKey: env.FACILITATOR_API_KEY,
+  allowPayTo: env.FACILITATOR_ALLOW_PAYTO.split(",").map((s) => s.trim()).filter(Boolean),
   createAccount: env.HEDERA_NETWORK === "testnet" && env.ACCOUNT_DRIP_HBAR > 0 ? createAccount : undefined,
   log,
 });

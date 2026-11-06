@@ -23,6 +23,8 @@ export interface AppDeps {
   core: FacilitatorCore;
   /** When set, /verify and /settle need `Authorization: Bearer <key>` (stops strangers spending our fee HBAR). */
   apiKey?: string;
+  /** When set, only payments TO these accounts are verified/settled: our fee payer can't be used to pay strangers. */
+  allowPayTo?: string[];
   /** Testnet only. Absent: POST /accounts returns 404. */
   createAccount?: (publicKey: string) => Promise<{ accountId: string; initialHbar: number }>;
   /** Accounts one client IP may create per hour, and in total per process lifetime. */
@@ -62,6 +64,10 @@ export function createApp(d: AppDeps) {
       if (!parsed.success) return c.json({ error: "body must be {x402Version, paymentPayload, paymentRequirements}" }, 400);
       const p = parsed.data.paymentPayload as unknown as PaymentPayload;
       const r = parsed.data.paymentRequirements as unknown as PaymentRequirements;
+      if (d.allowPayTo?.length && !d.allowPayTo.includes(String(r.payTo)))
+        return name === "verify"
+          ? c.json({ isValid: false, invalidReason: "pay_to_not_served", invalidMessage: "this facilitator only serves AgentMeter payees" })
+          : c.json({ success: false, errorReason: "pay_to_not_served", transaction: "", network: r.network });
       try {
         const res = await handler(p, r);
         log(name, { network: r.network, amount: r.amount, payTo: r.payTo, result: res });

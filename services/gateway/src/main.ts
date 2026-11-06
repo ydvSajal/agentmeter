@@ -21,6 +21,11 @@ async function main() {
   if (!config.env.DATABASE_URL.startsWith("file:"))
     setInterval(() => void repos.ping().catch((e: unknown) => log.warn({ err: String(e) }, "db keep-warm ping failed")), 240_000).unref();
 
+  // A free-plan facilitator sleeps after ~15 min idle; a cold start would blow the 5s verify timeout.
+  const facUrl = config.env.X402_FACILITATOR_URL;
+  if (config.adapters.facilitator === "real" && facUrl)
+    setInterval(() => void fetch(`${facUrl.replace(/\/$/, "")}/supported`, { signal: AbortSignal.timeout(60_000) }).catch(() => undefined), 600_000).unref();
+
   // Receipt key. Fake-only dev runs may use an ephemeral key; the device must then pin the printed public key.
   let seed = config.env.RECEIPT_SIGNING_KEY_ED25519;
   if (!seed) {
