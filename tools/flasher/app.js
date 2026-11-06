@@ -19,7 +19,8 @@ let monitorWriter = null;
 let monitoring = false;
 
 // Bootloader offset differs per chip family (esptool docs).
-const bootOffset = () => (/ESP32-(S3|C3|C6|H2|C5|P4)/i.test(chipName) ? 0x0 : 0x1000);
+// Before connecting, the "Chip" dropdown decides; after connecting, the detected chip wins.
+const bootOffset = () => (/ESP32-(S3|C3|C6|H2|C5|P4)/i.test(chipName || $("chipsel").value) ? 0x0 : 0x1000);
 const hex = (n) => "0x" + n.toString(16);
 
 const PRESETS = {
@@ -120,8 +121,9 @@ async function flash() {
         $("status").textContent = `File ${i + 1}/${fileArray.length}: ${Math.round((written / total) * 100)}%`;
       },
     });
-    await loader.after("hard_reset");
-    $("status").innerHTML = `<span class="ok">Done.</span> Board reset. Open the serial monitor to see its output.`;
+    // Native-USB boards (S3 "USB" port) re-enumerate on reset: the port vanishes and this can throw.
+    await loader.after("hard_reset").catch(() => undefined);
+    $("status").innerHTML = `<span class="ok">Done.</span> Board reset. Open the serial monitor to see its output. On an S3 native USB port the device re-appears: click Connect again and pick the new port.`;
   } catch (e) {
     $("status").innerHTML = `<span class="bad">Flash failed:</span> ${e?.message ?? e}`;
   } finally {
@@ -197,6 +199,7 @@ async function resetBoard() {
 }
 
 $("preset").addEventListener("change", renderImages);
+$("chipsel").addEventListener("change", renderImages);
 $("connect").addEventListener("click", connect);
 $("disconnect").addEventListener("click", async () => {
   await cleanup();

@@ -50,6 +50,13 @@
   <section>
     <h2>2. Firmware</h2>
     <div class="row">
+      <label>Chip
+        <select id="chipsel">
+          <option value="ESP32">ESP32 (bootloader 0x1000)</option>
+          <option value="ESP32-S3" selected>ESP32-S3 (bootloader 0x0)</option>
+          <option value="ESP32-C3">ESP32-C3 (bootloader 0x0)</option>
+        </select>
+      </label>
       <label>Layout
         <select id="preset">
           <option value="pio">PlatformIO build (bootloader, partitions, boot_app0, firmware)</option>
@@ -59,7 +66,7 @@
       </label>
     </div>
     <div id="images"></div>
-    <p class="mut" style="margin:6px 0 0">PlatformIO files: <code>firmware/esp32/.pio/build/&lt;env&gt;/{bootloader,partitions,firmware}.bin</code>; <code>boot_app0.bin</code> is in <code>~/.platformio/packages/framework-arduinoespressif32/tools/partitions/</code>. Offsets depend on the chip; they update after you connect.</p>
+    <p class="mut" style="margin:6px 0 0">PlatformIO files: <code>firmware/esp32/.pio/build/&lt;env&gt;/{bootloader,partitions,firmware}.bin</code>; <code>boot_app0.bin</code> is in <code>~/.platformio/packages/framework-arduinoespressif32/tools/partitions/</code>. Offsets depend on the chip: pick it here, and it is corrected from the detected chip after you connect. <b>S3:</b> use the USB-C port marked UART/COM for flashing; on the native "USB" port, hold <code>BOOT</code>, tap <code>RST</code>, release <code>BOOT</code> if connect fails, and re-pick the port after each reset.</p>
     <div class="row">
       <label><input type="checkbox" id="erase" /> Erase entire flash first</label>
     </div>
