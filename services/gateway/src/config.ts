@@ -8,7 +8,7 @@ const Schema = z.object({
   ADAPTERS: mode.default("fake"),
   // per-port overrides; default to ADAPTERS
   FACILITATOR: mode.optional(),
-  DECIDER: mode.optional(),
+  DECIDER: z.enum(["fake", "real", "rules"]).optional(),
   EPISODES: mode.optional(),
   AUDIT: mode.optional(),
   STEPUP: mode.optional(),
@@ -48,7 +48,10 @@ const REQUIRED_FOR_REAL = {
 } as const;
 
 export type PortName = keyof typeof REQUIRED_FOR_REAL;
-export type AdapterModes = Record<PortName, "fake" | "real">;
+export type AdapterModes = Omit<Record<PortName, "fake" | "real">, "decider"> & {
+  /** `rules` = deterministic RulesDecider (no AI, no credits). */
+  decider: "fake" | "real" | "rules";
+};
 
 export interface Config {
   env: z.infer<typeof Schema>;

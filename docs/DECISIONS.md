@@ -35,3 +35,9 @@ Options: A, B (one line each).
 Decision: what we chose.
 Consequences: what gets easier/harder, what to revisit.
 ```
+
+## RulesDecider as no-credit default (gateway)
+Context: only ~$1 of 0G Compute credit; cannot afford per-request AI calls in dev/tests.
+Options: A) FakeDecider only, B) deterministic RulesDecider behind the same port.
+Decision: B. `DECIDER=rules|fake|real`; `rules` = `services/gateway/src/core/rules-decider.ts` (online, heartbeat <=15s, relay off, no live session, <=60 min). Throw/unknown state never ALLOWs.
+Consequences: `real` ZeroGDecider reserved for the recorded demo run to keep the 0G track; README must say which decisions were live vs rules.

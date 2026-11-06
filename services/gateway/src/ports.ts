@@ -13,6 +13,7 @@ import {
   type StepUpProvider,
 } from "@agentmeter/shared";
 import type { Config, PortName } from "./config";
+import { RulesDecider } from "./core/rules-decider";
 
 export interface Ports {
   facilitator: PaymentFacilitator;
@@ -37,7 +38,7 @@ export function buildPorts(config: Config): Ports {
   const pick = <T>(port: PortName, fake: () => T): T => (m[port] === "fake" ? fake() : notWired(port));
   return {
     facilitator: pick("facilitator", () => new FakeFacilitator()),
-    decider: pick("decider", () => new FakeDecider()),
+    decider: m.decider === "rules" ? new RulesDecider() : pick("decider", () => new FakeDecider()),
     episodes: pick("episodes", () => new FakeEpisodeStore()),
     audit: pick("audit", () => new FakeAuditLog()),
     stepUp: pick("stepup", () => new FakeStepUp()),
