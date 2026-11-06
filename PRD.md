@@ -84,6 +84,7 @@ Plus **ETHGlobal Finalist**: for a 3–5 person team, 1,000 USDC per person + 50
 - Multi-device marketplace, agent compares prices across devices
 - Scheduled Transactions for recurring rentals
 - Run our own facilitator with replay protection
+- **Rentable compute ("software device")**: same protocol, any resource, not just relays. A seller-side Node daemon replaces the ESP32: outbound WebSocket, verify receipt, start a time-boxed Docker container (GPU via NVIDIA container toolkit), local timer, ack. Requires a real sandbox (no host disk/LAN, egress limits); kiosk mode is not a security boundary and only fits in-person use. Two-way trust needs metering/attestation. Competitors: Vast.ai, Salad, Akash, io.net, Golem; our edge is agent-native payment + safety. Est. ~1 day for a demo daemon, only after P0 works.
 
 ### Out of scope
 - Mainnet, a real money custody UI, mobile app, multi-tenant auth beyond the demo
