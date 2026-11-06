@@ -10,9 +10,15 @@
   },
   "dependencies": {
     "@agentmeter/shared": "workspace:*",
-    "@x402/core": "2.30.0"
+    "@hiero-ledger/sdk": "2.90.1",
+    "@x402/core": "2.30.0",
+    "@x402/hedera": "2.30.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./payer": "./src/payer.ts"
   }
 }

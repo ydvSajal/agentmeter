@@ -33,6 +33,8 @@ export interface HederaFacilitatorConfig {
   maxTimeoutSeconds?: number;
   /** Per-request HTTP timeout to the facilitator. */
   timeoutMs?: number;
+  /** Bearer key for a private facilitator (our own, AD043). */
+  apiKey?: string;
   client?: FacilitatorClientLike;
 }
 
@@ -48,7 +50,14 @@ export class HederaFacilitator implements PaymentFacilitator {
   constructor(private readonly cfg: HederaFacilitatorConfig) {
     this.network = cfg.network ?? "hedera:testnet";
     this.asset = cfg.asset ?? "0.0.0";
-    this.client = cfg.client ?? new HTTPFacilitatorClient({ url: cfg.facilitatorUrl, timeoutMs: cfg.timeoutMs ?? 10_000 } as ConstructorParameters<typeof HTTPFacilitatorClient>[0]);
+    const auth = cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : undefined;
+    this.client =
+      cfg.client ??
+      new HTTPFacilitatorClient({
+        url: cfg.facilitatorUrl,
+        timeoutMs: cfg.timeoutMs ?? 10_000,
+        ...(auth ? { createAuthHeaders: async () => ({ verify: auth, settle: auth, supported: auth }) } : {}),
+      } as ConstructorParameters<typeof HTTPFacilitatorClient>[0]);
   }
 
   /** Fee payer account the facilitator advertises for our network (cached). */

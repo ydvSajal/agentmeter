@@ -8,3 +8,4 @@ allowBuilds:
   '@prisma/engines': true
   esbuild: true
   prisma: true
+  protobufjs: false # postinstall is only a version notice (Hedera SDK dep)
