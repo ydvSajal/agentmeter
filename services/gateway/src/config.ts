@@ -14,7 +14,7 @@ const Schema = z.object({
   STEPUP: mode.optional(),
 
   PORT: num(8787),
-  DATABASE_URL: z.string().default("file:./dev.db"),
+  DATABASE_URL: z.string().default("file:./dev.db"), // prod: Neon pooled postgres URL (AD034)
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   RECEIPT_SIGNING_KEY_ED25519: z.string().optional(),
   STEP_UP_THRESHOLD_HBAR: num(2),

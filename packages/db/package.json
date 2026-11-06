@@ -10,7 +10,10 @@
     "seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run --passWithNoTests",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "schema:pg": "node scripts/gen-pg-schema.mjs",
+    "generate:pg": "node scripts/gen-pg-schema.mjs && prisma generate --schema prisma/postgres/schema.prisma",
+    "migrate:pg": "prisma migrate deploy --schema prisma/postgres/schema.prisma"
   },
   "dependencies": {
     "@agentmeter/shared": "workspace:*",

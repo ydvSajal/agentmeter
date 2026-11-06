@@ -10,13 +10,16 @@ import { AgentMeterError, TERMINAL_STATES, type SessionState } from "@agentmeter
 export type Db = PrismaClient;
 
 /**
- * SQLite allows one writer. A single Prisma connection makes concurrent writes queue instead of
+ * SQLite (dev/tests) allows one writer. A single Prisma connection makes concurrent writes queue instead of
  * failing with SQLITE_BUSY, and the generous transaction limits absorb that queue on slow machines
- * (background audit/episode logging runs next to state-change transactions).
+ * (background audit/episode logging runs next to state-change transactions). Postgres (Neon, AD034)
+ * keeps Prisma's default pool: the pooled URL already multiplexes connections.
  */
 export function createDb(url?: string): Db {
   const limited =
-    url && !url.includes("connection_limit") ? `${url}${url.includes("?") ? "&" : "?"}connection_limit=1` : url;
+    url?.startsWith("file:") && !url.includes("connection_limit")
+      ? `${url}${url.includes("?") ? "&" : "?"}connection_limit=1`
+      : url;
   return new PrismaClient({
     ...(limited ? { datasources: { db: { url: limited } } } : {}),
     transactionOptions: { maxWait: 10_000, timeout: 20_000 },
