@@ -70,6 +70,18 @@ export function createRepos(db: Db) {
     spentOn(agent: { spentToday: string; spentDay: string }, now: number): bigint {
       return agent.spentDay === utcDay(now) ? BigInt(agent.spentToday) : 0n;
     },
+    /**
+     * Wallet payer (AD044): the agent that owns `accountId`, created on first verified payment as
+     * `wallet:<accountId>`. Allowed on every current device; the daily cap still bounds spend.
+     */
+    async ensureWallet(accountId: string, dailyCap: string) {
+      const existing = await db.agent.findUnique({ where: { hederaAccountId: accountId } });
+      const all = JSON.stringify((await db.device.findMany({ select: { id: true } })).map((d) => d.id));
+      if (existing) return existing.id.startsWith("wallet:") ? db.agent.update({ where: { id: existing.id }, data: { allowedDeviceIds: all } }) : existing;
+      return db.agent.create({
+        data: { id: `wallet:${accountId}`, name: `Wallet ${accountId}`, hederaAccountId: accountId, dailyCap, asset: "HBAR", allowedDeviceIds: all },
+      });
+    },
     /** Add settled spend for `now`'s UTC day. */
     async addSpend(id: string, amount: bigint, now: number) {
       return db.$transaction(async (tx) => {
@@ -143,6 +155,14 @@ export function createRepos(db: Db) {
     recentForDevice: (deviceId: string, limit = 5) =>
       db.session.findMany({ where: { deviceId }, orderBy: { createdAt: "desc" }, take: limit, select: { state: true, createdAt: true } }),
     list: (limit = 50) => db.session.findMany({ orderBy: { createdAt: "desc" }, take: limit }),
+    /** Latest paid-lease end on this device still in the future (ACTIVE or SETTLED), or null. Renewals chain after it. */
+    async leaseEnd(deviceId: string, now: number): Promise<number | null> {
+      const r = await db.session.aggregate({
+        where: { deviceId, state: { in: ["ACTIVE", "SETTLED"] }, expiresAt: { gt: now } },
+        _max: { expiresAt: true },
+      });
+      return r._max.expiresAt ?? null;
+    },
     /** Sessions in `state` created strictly before `olderThanUnix` (step-up expiry, restart recovery). */
     listByStateOlderThan: (state: SessionState, olderThanUnix: number) =>
       db.session.findMany({ where: { state, createdAt: { lt: olderThanUnix } }, orderBy: { createdAt: "asc" } }),

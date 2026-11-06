@@ -50,6 +50,7 @@ export function buildPorts(config: Config): Ports {
         new HederaFacilitator({
           facilitatorUrl: e.X402_FACILITATOR_URL!, // presence enforced by loadConfig for real adapters
           network: `hedera:${e.HEDERA_NETWORK}`,
+          apiKey: e.X402_FACILITATOR_API_KEY,
           resourceBaseUrl: e.PUBLIC_BASE_URL ?? `http://localhost:${e.PORT}`,
         }),
     ),

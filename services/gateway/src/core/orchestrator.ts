@@ -46,6 +46,8 @@ export interface OrchestratorOptions {
   /** Wait before the single retry of a failed email send. Tests use 0. */
   notifyRetryMs?: number;
   hederaNetwork?: string;
+  /** Daily cap (base units) for wallet agents created on first payment (AD044). */
+  walletDailyCap?: bigint;
 }
 
 const SETTLE_ATTEMPTS = 3;
@@ -93,7 +95,8 @@ export class Orchestrator {
       verifyTimeoutMs: 5000,
       settleTimeoutMs: 10_000,
       rateWindowSec: 3600,
-      maxSessionsPerWindow: 20,
+      maxSessionsPerWindow: 120, // pay-per-minute renewals: ~60/hour per device
+      walletDailyCap: 1_000_000_000n, // 10 HBAR
       settleBackoffMs: 500,
       stepUpTtlSec: 300,
       notifyRetryMs: 500,
@@ -123,8 +126,11 @@ export class Orchestrator {
 
   async startSession(input: { deviceId: string; agentId: string; minutes: number; paymentHeader: string }): Promise<StartResult> {
     const now = this.ports.clock.now();
-    const agent = await this.repos.agents.get(input.agentId);
-    if (!agent) throw new AgentMeterError("POLICY_DENIED", `unknown agent ${input.agentId}`);
+    let agent = await this.repos.agents.get(input.agentId);
+    // Wallet payers (AD044) name themselves `wallet:<0.0.x>`; the agent row is created only after the
+    // facilitator proves that account signed the payment.
+    const walletAccount = /^wallet:(0\.0\.\d+)$/.exec(input.agentId)?.[1];
+    if (!agent && !walletAccount) throw new AgentMeterError("POLICY_DENIED", `unknown agent ${input.agentId}`);
     const { device, amount, requirements } = await this.quote(input.deviceId, input.minutes);
 
     const verified = await withTimeout(
@@ -133,6 +139,10 @@ export class Orchestrator {
       "facilitator verify",
     );
     if (!verified.valid) throw new AgentMeterError("PAYMENT_UNVERIFIED", verified.invalidReason ?? "payment not valid");
+    if (!agent) {
+      if (verified.payer !== walletAccount) throw new AgentMeterError("POLICY_DENIED", "payer account does not match the wallet");
+      agent = await this.repos.agents.ensureWallet(walletAccount!, this.o.walletDailyCap.toString());
+    }
     if (verified.payer && verified.payer !== agent.hederaAccountId) {
       throw new AgentMeterError("POLICY_DENIED", "payer account does not belong to this agent");
     }
@@ -350,12 +360,16 @@ export class Orchestrator {
     // 2. Sign the receipt and push it to the device.
     const nonce = generateNonce();
     if (!(await this.repos.nonces.use(nonce, now))) throw new AgentMeterError("INTERNAL", "nonce collision", sessionId);
+    // Pay-per-minute renewal (AD045): while the relay is on under a paid lease, new time starts where
+    // that lease ends, so back-to-back 1-minute payments add up instead of overlapping.
+    const relayOn = (await this.repos.devices.get(s.deviceId))?.relay ?? false;
+    const leaseEnd = relayOn ? await this.repos.sessions.leaseEnd(s.deviceId, now) : null;
     const receipt = {
       deviceId: s.deviceId,
       sessionId,
       nonce,
       notBefore: now,
-      expiresAt: now + s.minutes * 60,
+      expiresAt: Math.max(now, leaseEnd ?? 0) + s.minutes * 60,
       amount: s.amount,
       payer: s.payer ?? "0.0.0",
     };

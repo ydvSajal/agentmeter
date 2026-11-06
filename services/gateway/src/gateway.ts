@@ -35,6 +35,7 @@ export function createGateway(i: GatewayInput) {
     zgTimeoutMs: config.env.ZG_TIMEOUT_MS,
     ...(config.env.NOTIFY_ENABLED && config.env.NOTIFY_TO ? { notifyTo: config.env.NOTIFY_TO } : {}),
     hederaNetwork: config.env.HEDERA_NETWORK,
+    walletDailyCap: hbarToTinybar(config.env.WALLET_AGENT_DAILY_CAP_HBAR),
     ...i.orchestratorOptions,
   });
   hub.onStatus((e) => {

@@ -41,6 +41,9 @@ const Schema = z.object({
   HEDERA_PAYTO_ACCOUNT_ID: z.string().optional(),
   HEDERA_HCS_TOPIC_ID: z.string().optional(),
   X402_FACILITATOR_URL: z.string().url().optional(),
+  X402_FACILITATOR_API_KEY: z.string().optional(), // our own facilitator (AD043)
+  // Wallet payers (AD044): first verified payment from `wallet:<0.0.x>` registers an agent with this cap.
+  WALLET_AGENT_DAILY_CAP_HBAR: num(10),
   ZG_COMPUTE_BASE_URL: z.string().url().optional(),
   ZG_COMPUTE_API_KEY: z.string().optional(),
   ZG_MODEL: z.string().optional(),

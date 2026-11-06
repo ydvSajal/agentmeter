@@ -144,6 +144,33 @@ describe("orchestrator", () => {
     expect(a.spentToday).toBe("10000000");
   });
 
+  it("wallet payer: first verified payment registers wallet:<account>; a mismatched payer is denied", async () => {
+    await db.agent.deleteMany(); // the fake facilitator's payer 0.0.1001 now belongs to nobody
+    const ok = await finish(await orch.startSession({ deviceId: "d1", agentId: "wallet:0.0.1001", minutes: 1, paymentHeader: `pay-${++n}` }));
+    expect(ok.state).toBe("SETTLED");
+    const a = (await repos.agents.get("wallet:0.0.1001"))!;
+    expect(a.hederaAccountId).toBe("0.0.1001");
+    expect(repos.agents.allowedDeviceIds(a)).toEqual(["d1"]);
+    await expect(
+      orch.startSession({ deviceId: "d1", agentId: "wallet:0.0.7777", minutes: 1, paymentHeader: `pay-${++n}` }),
+    ).rejects.toMatchObject({ code: "POLICY_DENIED" });
+    await expect(orch.startSession({ deviceId: "d1", agentId: "nobody", minutes: 1, paymentHeader: `pay-${++n}` })).rejects.toMatchObject({ code: "POLICY_DENIED" });
+  });
+
+  it("pay-per-minute renewal chains after the live lease instead of overlapping it", async () => {
+    const first = await finish(await start(1));
+    expect(first.expiresAt).toBe(clock.now() + 60);
+    await db.device.update({ where: { id: "d1" }, data: { relay: true } }); // heartbeat: relay on
+    clock.advance(45);
+    const second = await finish(await start(1));
+    expect(second.state).toBe("SETTLED");
+    expect(second.expiresAt).toBe(first.expiresAt! + 60); // 15s left + 60s, not 60s from now
+    // Relay already off (lease lost, e.g. reboot): no chaining onto a lease the device does not run.
+    await db.device.update({ where: { id: "d1" }, data: { relay: false } });
+    const third = await finish(await start(1));
+    expect(third.expiresAt).toBe(clock.now() + 60);
+  });
+
   it("rejects a replayed payment payload before anything happens", async () => {
     await finish(await start(1, "same"));
     await expect(start(1, "same")).rejects.toMatchObject({ code: "PAYMENT_REPLAY" });
