@@ -1,4 +1,6 @@
-// AgentMeter persistence (TRD §4). SQLite, single writer (one gateway process).
+// AgentMeter persistence (TRD §4). This file stays SQLite-compatible (no scalar lists) and is the
+// single source of truth: dev and tests run on SQLite files; prod (Neon Postgres, AD034) uses
+// prisma/postgres/schema.prisma, derived from this file by scripts/gen-pg-schema.mjs (AD037).
 // Money: base-unit decimal strings + asset. Time: unix seconds (Int).
 
 generator client {
@@ -89,6 +91,20 @@ model StepUp {
   createdAt    Int
   expiresAt    Int
   session      Session @relation(fields: [sessionId], references: [id])
+}
+
+/// Email log (AD035). One row per attempted notification; failures never affect session state.
+model Notification {
+  id          String  @id
+  kind        String // NotificationKind from @agentmeter/shared
+  toEmail     String
+  sessionId   String?
+  status      String  @default("QUEUED") // QUEUED | SENT | FAILED
+  providerId  String? // Resend email id
+  error       String?
+  createdAt   Int
+
+  @@index([sessionId])
 }
 
 model UsedNonce {

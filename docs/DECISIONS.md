@@ -38,6 +38,10 @@ For bigger decisions add a short section below the table using the template at t
 | AD031 | 2026-11-06 | `recoverOrphans()` runs once at boot before serving: PENDING/STEP_UP/ISSUED → CANCELLED ("gateway restarted"), DECIDING → SAFE_STOP, ACTIVE → CANCELLED ("gateway restarted before settlement"); never settles | Pending payments are in memory, so no pre-restart session can ever settle | accepted |
 | AD032 | 2026-11-06 | Device WS token stays in the query string (`/devices/:id?token=`) | Simplest for the ESP32 client; may appear in proxy/access logs. Fix later: header or first-frame auth | accepted (risk, unfixed for demo) |
 | AD033 | 2026-11-06 | Read endpoints (`/devices`, `/agents`, `/audit`, `/sessions/:id`, `/events`) and `/stepup/callback` are unauthenticated | Demo dashboard on a trusted network; callback is still bound by single-use OIDC `state`. Fix later: dashboard auth + callback shared secret | accepted (risk, unfixed for demo) |
+| AD034 | 2026-11-07 | Database is Neon Postgres (replaces SQLite). Runtime uses pooled `DATABASE_URL`, migrations use `DIRECT_URL` | Gateway must be host-independent with durable data; Prisma supports both URLs. Supersedes the SQLite choice in TRD §2/§4 | proposed |
+| AD035 | 2026-11-07 | Email via Resend behind a `Notifier` port, fire-and-forget after state is persisted, never on the decision path | Human alerts and step-up links without risking safe-stop; a send failure only marks `Notification` FAILED | proposed |
+| AD036 | 2026-11-07 | Gateway hosted on Render Web Service (Starter plan); Neon holds data. Laptop is fallback | Needs WebSockets (Vercel cannot). Free web service sleeps and drops device link; Render free Postgres expires, so data stays on Neon | proposed |
+| AD037 | 2026-11-07 | Prisma stays on a SQLite-compatible `schema.prisma` for dev/tests; the Postgres schema and migrations for Neon are derived by `scripts/gen-pg-schema.mjs` and drift-tested | Tests use throwaway SQLite files and CI has no Postgres; avoids rewriting 75+ tests. Risk: Postgres-only behavior (CAS transactions, P2002) is not covered by CI; verify with a live Neon run | accepted |
 
 ## Template
 

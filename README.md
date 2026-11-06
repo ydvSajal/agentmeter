@@ -49,7 +49,7 @@ flowchart LR
         R[receipt signer<br/>Ed25519]
         L[loggers<br/>0G Storage + HCS]
         HUB[device hub<br/>WebSocket server]
-        DB[(SQLite via Prisma)]
+        DB[(Neon Postgres via Prisma)]
         SSE[SSE / REST for dashboard]
     end
 
@@ -175,7 +175,7 @@ flowchart TB
     end
 
     subgraph LAP2["Laptop (runs everything stateful)"]
-        GWp[Gateway :8787<br/>Hono + WS + SQLite file]
+        GWp[Gateway :8787<br/>Hono + WS, on Render]
         AGp[Agent CLI]
         WEBp[Next.js dashboard :3000]
     end
@@ -197,7 +197,7 @@ flowchart TB
 
 | Component | Runs on | Why |
 |---|---|---|
-| Gateway | Laptop (demo). Backup: Render or Fly.io | Needs long-lived WebSockets and a writable SQLite file, so **not Vercel serverless** |
+| Gateway | Render Web Service (Starter). Fallback: laptop | Needs long-lived WebSockets, so **not Vercel serverless** (AD036) |
 | Dashboard | Laptop `:3000`, or Vercel | Static/SSR is fine on Vercel; it must reach the gateway over a public URL |
 | Agent | Laptop | Holds the Hedera payer key; never deployed |
 | ESP32 | Phone hotspot | Venue Wi-Fi often isolates clients. Device connects **outbound** to the gateway; laptop must be on the same hotspot, or use the tunnel |
@@ -311,7 +311,7 @@ Each section: **source** (what we reuse), **how it plugs in**, **contract**, **k
 
 ### 2.12 Persistence (`packages/db`)
 
-Prisma + SQLite (`DATABASE_URL=file:./dev.db`). Models per PRD §7: `Device`, `Agent`, `Session`, `StepUp`, `UsedNonce`. Single-writer; fine for one gateway process.
+Prisma + Neon Postgres (`DATABASE_URL` pooled, `DIRECT_URL` for migrations; AD034). Models per PRD §7: `Device`, `Agent`, `Session`, `StepUp`, `UsedNonce`, plus `Notification` (email log, AD035).
 
 ---
 

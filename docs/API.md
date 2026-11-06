@@ -47,6 +47,7 @@ States: `PENDING | STEP_UP | DECIDING | ISSUED | ACTIVE | SETTLED | CANCELLED | 
 - `GET /devices` → `[{ id, name, status:"ONLINE"|"OFFLINE", lastHeartbeat, pricePerMinute, asset, relay }]`
 - `GET /agents` → `[{ id, name, hederaAccountId, dailyCap, spentToday, asset }]`
 - `GET /audit?limit&cursor` → sessions with `hederaTxId`, `hashscanUrl`, `hcsSeq`, `zgRequestId`, `zgRootHash`
+- `GET /notifications` → last 50 email alerts: `[{ id, kind, sessionId, status:"QUEUED"|"SENT"|"FAILED", error, at }]` (recipient address is not exposed; AD035)
 - `GET /events` (SSE) → `event: session` data: `{ sessionId, state, at, detail }`; `event: device` data: `{ deviceId, status, relay }`
 - `GET /health` → `{ ok, db, deps:{ facilitator, zerog, hedera, world } }` (last-success times)
 

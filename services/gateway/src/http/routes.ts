@@ -79,6 +79,20 @@ export function mountApi(app: Hono, ctx: ApiContext, log: Logger) {
   });
 
   // --- live events (SSE): `session` and `device` ----------------------------------------------
+  // Email log (AD035). Recipient address is deliberately not exposed (reads are unauthenticated, AD033).
+  app.get("/notifications", async (c) =>
+    c.json(
+      (await repos.notifications.recent(50)).map((n) => ({
+        id: n.id,
+        kind: n.kind,
+        sessionId: n.sessionId,
+        status: n.status,
+        error: n.error,
+        at: n.createdAt,
+      })),
+    ),
+  );
+
   app.get("/events", (c) =>
     streamSSE(c, async (stream) => {
       const offSession = orchestrator.onEvent((e) => void stream.writeSSE({ event: "session", data: JSON.stringify(e) }));

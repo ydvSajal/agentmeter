@@ -13,6 +13,13 @@ async function main() {
   const ports = buildPorts(config); // throws if a requested real adapter is not wired
   const db = createDb(config.env.DATABASE_URL);
   const repos = createRepos(db);
+  // Fail fast if the DB is unreachable (bad URL, Neon paused): never serve a gateway that cannot persist.
+  await repos.ping().catch((e: unknown) => {
+    throw new ConfigError(`database unreachable (${config.env.DATABASE_URL.startsWith("file:") ? "sqlite file" : "postgres"}): ${e instanceof Error ? e.message.split("\n").pop() : String(e)}`);
+  });
+  // Neon scales compute to zero when idle; a cheap ping keeps decision-path queries off cold starts (AD034).
+  if (!config.env.DATABASE_URL.startsWith("file:"))
+    setInterval(() => void repos.ping().catch((e: unknown) => log.warn({ err: String(e) }, "db keep-warm ping failed")), 240_000).unref();
 
   // Receipt key. Fake-only dev runs may use an ephemeral key; the device must then pin the printed public key.
   let seed = config.env.RECEIPT_SIGNING_KEY_ED25519;

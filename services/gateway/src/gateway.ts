@@ -30,7 +30,12 @@ export function createGateway(i: GatewayInput) {
     stepUpThreshold: hbarToTinybar(config.env.STEP_UP_THRESHOLD_HBAR),
     ackTimeoutMs: config.env.ACK_TIMEOUT_MS,
     zgTimeoutMs: config.env.ZG_TIMEOUT_MS,
+    ...(config.env.NOTIFY_ENABLED && config.env.NOTIFY_TO ? { notifyTo: config.env.NOTIFY_TO } : {}),
+    hederaNetwork: config.env.HEDERA_NETWORK,
     ...i.orchestratorOptions,
+  });
+  hub.onStatus((e) => {
+    if (e.status === "OFFLINE") void orchestrator.onDeviceOffline(e.deviceId);
   });
   const app = createApp({
     log,

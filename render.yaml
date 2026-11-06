@@ -1,0 +1,42 @@
+# Render Blueprint for the gateway (AD036). Data lives on Neon (AD034). Secrets use sync:false: set them in the
+# Render dashboard, never here. See docs/DEPLOY.md.
+services:
+  - type: web
+    name: agentmeter-gateway
+    runtime: node
+    plan: starter # free instances sleep after ~15 min idle and would drop the device WebSocket
+    region: singapore # closest Render region to Mumbai; create the Neon project in aws-ap-southeast-1
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile --prod=false &&
+      pnpm --filter @agentmeter/db generate:pg &&
+      pnpm --filter @agentmeter/db migrate:pg &&
+      pnpm --filter @agentmeter/db seed
+    startCommand: pnpm --filter @agentmeter/gateway start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.18.0
+      - key: ADAPTERS
+        value: fake # flip to real, or per-port overrides, as each adapter gets its keys
+      - key: DATABASE_URL # Neon POOLED string (host has -pooler)
+        sync: false
+      - key: DIRECT_URL # Neon DIRECT string, used by prisma migrate during build
+        sync: false
+      - key: RECEIPT_SIGNING_KEY_ED25519
+        sync: false
+      - key: HEDERA_PAYTO_ACCOUNT_ID
+        sync: false
+      - key: AGENT_HEDERA_ACCOUNT_ID
+        sync: false
+      - key: NOTIFY_ENABLED # "true" once RESEND_API_KEY and NOTIFY_TO are set (AD035)
+        value: "false"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFY_TO # owner email; with the default sender it must be the Resend account email
+        sync: false
+      - key: SEED_DEVICE_TOKEN
+        sync: false
+      - key: SEED_DEVICE_HMAC_SECRET
+        sync: false
