@@ -42,8 +42,13 @@ static void runReceiptSelfTests() {
   check("millis_wrap_before_deadline", !lease.expired(v.now, start + 499999U));
   check("networkless_monotonic_expiry", lease.expired(v.now - 3600, start + 500000U));
   check("wall_clock_forward_expires", lease.expired(valid.expiresAt, start));
+  Receipt later = valid; later.sessionId = "renewal"; later.expiresAt = valid.expiresAt + 60;
+  check("renewal_rejects_not_later", !lease.extend(valid, v.now, start));
+  check("renewal_extends_deadline", lease.extend(later, v.now, start) && lease.expiresAt == later.expiresAt);
+  check("renewal_cancel_matches_both", lease.owns("renewal") && lease.owns(valid.sessionId) && !lease.owns("other"));
   lease.stop();
   check("cancel_stops_lease", !lease.active);
+  check("renewal_needs_active_lease", !lease.extend(later, v.now, start));
   check("no_relay_time_inside_late_skew", !lease.begin(valid, valid.expiresAt + 20, 0));
 
   // Dedicated NVS namespace; never erase or fill production replay history.

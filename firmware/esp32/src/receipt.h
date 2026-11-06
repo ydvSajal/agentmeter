@@ -94,8 +94,19 @@ struct RelayLease {
     durationMs = static_cast<uint32_t>(remaining * 1000); expiresAt = r.expiresAt;
     return true;
   }
+  // Pay-per-minute renewal (AD045): a verified receipt that ends later than the running lease
+  // replaces its deadline. The gateway chains renewals after the lease end, so no paid time is lost.
+  String prevSessionId;
+  bool extend(const Receipt &r, int64_t now, uint32_t tick) {
+    const int64_t remaining = r.expiresAt - now;
+    if (!active || r.expiresAt <= expiresAt || remaining <= 0 || remaining > 14430) return false;
+    prevSessionId = sessionId; sessionId = r.sessionId; startedMs = tick;
+    durationMs = static_cast<uint32_t>(remaining * 1000); expiresAt = r.expiresAt;
+    return true;
+  }
+  bool owns(const String &id) const { return active && (id == sessionId || id == prevSessionId); }
   bool expired(int64_t now, uint32_t tick) const {
     return active && (now >= expiresAt || static_cast<uint32_t>(tick - startedMs) >= durationMs);
   }
-  void stop() { active = false; sessionId = ""; }
+  void stop() { active = false; sessionId = ""; prevSessionId = ""; }
 };

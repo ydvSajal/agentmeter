@@ -172,11 +172,16 @@ static void acceptReceipt(JsonDocument &frame) {
   if (reason) return rejectReceipt(r, reason);
   // The skew window permits verification, but never adds paid running time.
   if (now >= r.expiresAt) return rejectReceipt(r, "expired");
-  if (lease.active || !replayReady || !relayTimer || String(DEVICE_HMAC_SECRET).isEmpty()) return rejectReceipt(r, "signature");
+  if (!replayReady || !relayTimer || String(DEVICE_HMAC_SECRET).isEmpty()) return rejectReceipt(r, "signature");
+  // While a lease runs, only a receipt that ends later can be accepted (a renewal).
+  if (lease.active && r.expiresAt <= lease.expiresAt) return rejectReceipt(r, "signature");
   const String mac = acknowledgementMac(DEVICE_HMAC_SECRET, r, now);
   if (mac.isEmpty() || !replayStore.remember(r.nonce)) return rejectReceipt(r, "signature");
   // Persist replay protection before actuation. Failure consumes no free usage.
-  if (!lease.begin(r, time(nullptr), millis())) return rejectReceipt(r, "expired");
+  const bool renewal = lease.active;
+  if (!(renewal ? lease.extend(r, time(nullptr), millis()) : lease.begin(r, time(nullptr), millis())))
+    return rejectReceipt(r, "expired");
+  esp_timer_stop(relayTimer);  // renewal: replace the running deadline (no-op when idle)
   timerExpired = false;
   struct timeval current;
   gettimeofday(&current, nullptr);
@@ -190,7 +195,8 @@ static void acceptReceipt(JsonDocument &frame) {
   ack["relay"] = true; ack["ts"] = now; ack["mac"] = mac;
   sendJson(ack);
   sendHeartbeat();
-  Serial.println("[receipt] verified, replay guard saved, relay ON, authenticated ack sent");
+  Serial.println(renewal ? "[receipt] renewal verified, lease extended, authenticated ack sent"
+                         : "[receipt] verified, replay guard saved, relay ON, authenticated ack sent");
 }
 
 static void onWs(WStype_t t, uint8_t *p, size_t n) {
@@ -210,7 +216,7 @@ static void onWs(WStype_t t, uint8_t *p, size_t n) {
     JsonDocument d;
     if (deserializeJson(d, p, n)) { stopRelay(); return; }
     const char *type = d["type"] | "";
-    if (!strcmp(type, "cancel") && d["sessionId"].as<String>() == lease.sessionId) {
+    if (!strcmp(type, "cancel") && lease.owns(d["sessionId"].as<String>())) {
       stopRelay(); sendHeartbeat();
     } else if (!strcmp(type, "receipt")) acceptReceipt(d);
   }
