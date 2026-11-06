@@ -205,7 +205,38 @@ export function createRepos(db: Db) {
     recent: (limit = 50) => db.notification.findMany({ orderBy: { createdAt: "desc" }, take: limit }),
   };
 
-  return { devices, agents, sessions, nonces, stepUps, notifications, ping: () => db.$queryRaw`SELECT 1` };
+  const users = {
+    byEmail: (email: string) => db.user.findUnique({ where: { email: email.toLowerCase() } }),
+    byId: (id: string) => db.user.findUnique({ where: { id } }),
+    /** Throws EMAIL_TAKEN-style INTERNAL-free signal: returns null when the email already exists. */
+    async create(u: { id: string; email: string; passwordHash: string; now: number }) {
+      try {
+        return await db.user.create({
+          data: { id: u.id, email: u.email.toLowerCase(), passwordHash: u.passwordHash, createdAt: u.now },
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) return null;
+        throw e;
+      }
+    },
+  };
+
+  /** Browser login sessions. The id is sha256(cookie token); the raw token only lives in the cookie. */
+  const authSessions = {
+    create: (s: { tokenHash: string; userId: string; now: number; ttlSec: number }) =>
+      db.authSession.create({
+        data: { id: s.tokenHash, userId: s.userId, createdAt: s.now, expiresAt: s.now + s.ttlSec },
+      }),
+    /** Returns the user for a live (unexpired) session, else null. */
+    async userFor(tokenHash: string, now: number) {
+      const s = await db.authSession.findUnique({ where: { id: tokenHash }, include: { user: true } });
+      return s && s.expiresAt > now ? s.user : null;
+    },
+    delete: (tokenHash: string) => db.authSession.deleteMany({ where: { id: tokenHash } }),
+    purgeExpired: (now: number) => db.authSession.deleteMany({ where: { expiresAt: { lte: now } } }),
+  };
+
+  return { devices, agents, sessions, nonces, stepUps, notifications, users, authSessions, ping: () => db.$queryRaw`SELECT 1` };
 }
 
 export type Repos = ReturnType<typeof createRepos>;

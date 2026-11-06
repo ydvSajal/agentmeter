@@ -10,6 +10,24 @@ datasource db {
   directUrl = env("DIRECT_URL") // Neon DIRECT string, used by prisma migrate only
 }
 
+model User {
+  id           String        @id
+  email        String        @unique // stored lowercase
+  passwordHash String // scrypt$N$r$p$saltB64$hashB64
+  createdAt    Int
+  sessions     AuthSession[]
+}
+
+model AuthSession {
+  id        String @id // sha256 of the cookie token; the raw token is never stored
+  userId    String
+  createdAt Int
+  expiresAt Int
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model Device {
   id                String    @id
   name              String

@@ -6,5 +6,5 @@ export const fixtureMode = isFixtureMode({
   gateway: process.env.NEXT_PUBLIC_GATEWAY_URL,
 });
 export const gatewayUrl = (
-  process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787"
+  process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://127.0.0.1:8787"
 ).replace(/\/$/, "");

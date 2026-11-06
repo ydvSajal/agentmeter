@@ -5,6 +5,7 @@
 import type { Repos } from "@agentmeter/db";
 import type { Logger } from "pino";
 import { createApp } from "./app";
+import type { AuthDeps } from "./http/auth";
 import type { Config } from "./config";
 import { Orchestrator, type OrchestratorOptions } from "./core/orchestrator";
 import { hbarToTinybar } from "./core/policy";
@@ -18,6 +19,8 @@ export interface GatewayInput {
   log: Logger;
   receiptSeedBase64: string;
   rateLimit?: { max: number; windowSec: number };
+  /** Browser login for the dashboard. Omit (tests, scenario runs) for open reads. */
+  auth?: AuthDeps;
   /** Overrides for tests and scenario runs (shorter timeouts etc.). */
   orchestratorOptions?: Partial<OrchestratorOptions>;
 }
@@ -43,6 +46,7 @@ export function createGateway(i: GatewayInput) {
     startedAt: ports.clock.now(),
     now: () => ports.clock.now(),
     checkDb: async () => (await repos.ping(), true),
+    auth: i.auth,
     api: { orchestrator, repos, hub, clock: ports.clock, hederaNetwork: config.env.HEDERA_NETWORK, rateLimit: i.rateLimit },
   });
   return { app, hub, orchestrator };

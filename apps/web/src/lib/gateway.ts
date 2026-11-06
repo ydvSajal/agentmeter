@@ -16,6 +16,7 @@ export { fixtureMode, gatewayUrl } from "./config";
 export const gateway = createGatewayClient(gatewayUrl, (input, init) =>
   fetch(input, {
     ...init,
+    credentials: "include",
     cache: "no-store",
     signal: AbortSignal.timeout(8000),
   }),
@@ -86,7 +87,7 @@ export async function startApproval(id: string, fetcher: typeof fetch = fetch) {
   if (fixtureMode) throw new Error("Demo mode cannot request real approval.");
   const response = await fetcher(
     `${gatewayUrl}/stepup/${encodeURIComponent(id)}/start`,
-    { method: "POST", signal: AbortSignal.timeout(8000) },
+    { method: "POST", credentials: "include", signal: AbortSignal.timeout(8000) },
   );
   if (!response.ok)
     throw new Error(
