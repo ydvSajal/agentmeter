@@ -490,6 +490,10 @@ Docs map: [`PRD.md`](PRD.md) what/why · [`TRD.md`](TRD.md) technical requiremen
 
 ---
 
+## Roadmap
+- **Any rentable resource, not just relays.** A seller-side "software device" daemon speaks the same WebSocket + signed-receipt protocol and starts a time-boxed, sandboxed container (e.g. GPU compute) instead of flipping a relay. Pay-per-minute x402, settle-on-ack, caps, World step-up and the 0G decision carry over unchanged. See PRD §5 P2.
+- ERC-8004 / HCS-14 agent identity and reputation; multi-device marketplace; scheduled rentals; own facilitator.
+
 ## Credits
 
 Built on top of **Paybot** by the superposition team (ETHGlobal Buenos Aires 2025). Uses **x402** (x402 Foundation), the **Hedera** SDK, **0G** Compute and Storage (zerobot as reference), **World ID**, `rweather/arduinolibs`, `links2004/arduinoWebSockets`, and ArduinoJson. Approval-binding pattern informed by `Lyons800/remit`; client pattern by `OkeyAmy/hbar402`.
